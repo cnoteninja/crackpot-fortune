@@ -42,14 +42,14 @@ jobs:
             echo "resources/icon.png not present yet — using default icons"
           fi
 
-      - name: Sync web app into iOS project (installs pods)
+      - name: Sync web app into iOS project
         run: npx cap sync ios
 
       - name: Build (no code signing)
         working-directory: ios/App
         run: |
           xcodebuild build \
-            -workspace App.xcworkspace \
+            -project App.xcodeproj \
             -scheme App \
             -configuration Release \
             -sdk iphoneos \
