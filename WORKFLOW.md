@@ -13,9 +13,9 @@ becomes a real iPhone + Android app.
 ## ✅ Done
 
 - [x] **Web app built and tested** — pick a game, crack the cookie,
-      get numbers + a fortune, save slips in the cookie jar
+  get numbers + a fortune, save slips in the cookie jar
 - [x] **Real draw data inside** — Ohio Pick 3/4/5 (100 draws each),
-      Mega Millions + Powerball (300 draws each), through Oct 21, 2026
+  Mega Millions + Powerball (300 draws each), through Oct 21, 2026
 - [x] **App project created** — iPhone and Android shells both exist
 - [x] **App icon designed** — golden cookie, glowing slip, indigo night
 - [x] **Icon + splash screens generated** — every size both stores need
@@ -25,12 +25,11 @@ becomes a real iPhone + Android app.
 ## 🔨 Ready to run (free, no accounts needed)
 
 - [x] **Android build recipe written** — GitHub's computers build an
-      installable APK file
+  installable APK file
 - [x] **iPhone build recipe written** — GitHub's Mac computers build
-      the iOS app (unsigned test build)
-- [ ] **Put the project on GitHub** — needs your go-ahead, then I
-      create the repo and push everything
-- [ ] **First test build** — run the Android recipe, download the APK
+  the iOS app (unsigned test build)
+- [x] **Put the project on GitHub** — live at github.com/cnoteninja/crackpot-fortune
+- [x] **First test builds pass** — Android APK (6.65 MB) + iOS unsigned app (2.97 MB), Oct 22
 - [ ] **Install the APK on a phone** — tap the cookie on a real device
 
 ## ⏸️ Parked — publishing (your call, later)
@@ -38,14 +37,14 @@ becomes a real iPhone + Android app.
 These cost money, so they wait until you decide it's worth it:
 
 - [ ] **Apple Developer account** — $99/year. Needed to put the app
-      on an iPhone or in the App Store
+  on an iPhone or in the App Store
 - [ ] **Google Play account** — $25 one time. Needed for the Play Store
 - [ ] **Sign the builds** — with the accounts above, the same recipes
-      produce store-ready builds
+  produce store-ready builds
 - [ ] **Submit to both stores** — listing + privacy policy are already
-      drafted, so this is mostly uploading and answering forms
+  drafted, so this is mostly uploading and answering forms
 - [ ] **Google's new-app rule** — new Play accounts must run a
-      14-day closed test with 12+ testers before going public
+  14-day closed test with 12+ testers before going public
 
 ## 🔁 Whenever we change the app
 
