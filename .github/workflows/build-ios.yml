@@ -1,0 +1,63 @@
+name: Build iOS (unsigned, for inspection)
+
+# Builds the iOS app on a GitHub macOS runner — no Mac needed at home.
+# The build is UNSIGNED: it proves the app compiles and packages correctly,
+# but it cannot be installed on an iPhone or submitted to the App Store
+# until an Apple Developer account ($99/yr) provides signing certificates.
+# Publishing is parked until Christopher decides otherwise (see WORKFLOW.md).
+# The native ios/ project is generated fresh in this workflow.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "www/**"
+      - "resources/**"
+      - "capacitor.config.json"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/build-ios.yml"
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate iOS project
+        run: npx cap add ios
+
+      - name: Generate icons and splash screens
+        run: |
+          if [ -f resources/icon.png ]; then
+            npx capacitor-assets generate --ios
+          else
+            echo "resources/icon.png not present yet — using default icons"
+          fi
+
+      - name: Sync web app into iOS project (installs pods)
+        run: npx cap sync ios
+
+      - name: Build (no code signing)
+        working-directory: ios/App
+        run: |
+          xcodebuild build \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+
+      - name: Upload app bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: crackpot-fortune-ios-app-unsigned
+          path: ios/App/build/Build/Products/Release-iphoneos/App.app
