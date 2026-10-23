@@ -49,6 +49,7 @@
   .seg{display:flex; gap:8px}
   .seg .pill{flex:1; text-align:center; padding:9px 4px; font-size:.86rem}
   .latest{font-size:.9rem; opacity:.9; margin-top:10px}
+  .mode-note{font-size:.92rem; line-height:1.5; opacity:.92; margin:10px 2px 0; min-height:2.6em}
   .latest b{color:var(--gold)}
   /* cookie stage */
   .stage{text-align:center; padding:8px 0 2px; position:relative}
@@ -78,7 +79,9 @@
   .ball.digit{border-radius:10px}
   .plus{font-size:1.2rem; color:#8a6a25; font-weight:700}
   .bonus-name{font-size:.7rem; color:#8a6a25; text-align:center; margin-top:-3px; letter-spacing:.08em; text-transform:uppercase}
-  .fortune{font-style:italic; font-size:1.02rem; line-height:1.45; text-align:center; margin:8px 2px 2px}
+  .fortune{font-style:italic; font-size:1.05rem; line-height:1.45; text-align:center; margin:2px 2px 10px}
+  .lucky{text-align:center; font-size:.92rem; letter-spacing:.06em; color:#6d5320; margin:8px 2px 2px}
+  .lucky b{color:#8a2b1d; letter-spacing:.12em; font-size:.78rem; text-transform:uppercase}
   .chips{display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-top:10px}
   .chip{font-family:-apple-system,sans-serif; font-size:.72rem; background:#8a6a2522; border:1px solid #8a6a2544; color:#6d5316; padding:4px 9px; border-radius:999px}
   .tap-hint{font-size:1rem; opacity:.9; margin:2px 0 0; animation:bob 2.2s ease-in-out infinite}
@@ -127,6 +130,7 @@
       <button class="pill" data-mode="hot">🔥 Hot Streak</button>
       <button class="pill" data-mode="overdue">🌙 Long Sleep</button>
     </div>
+    <p class="mode-note" id="modeNote"></p>
     <p class="lbl" style="margin-top:14px">Reading the last…</p>
     <div class="seg" id="winSeg">
       <button class="pill" data-win="30">30 draws</button>
@@ -141,9 +145,10 @@
       <div class="half right" id="halfR"></div>
       <div class="slip" id="slip">
         <div class="game-name" id="slipGame"></div>
+        <p class="fortune" id="slipFortune"></p>
         <div class="balls" id="slipBalls"></div>
         <div class="bonus-name" id="slipBonusName"></div>
-        <p class="fortune" id="slipFortune"></p>
+        <div class="lucky" id="slipLucky"></div>
         <div class="chips" id="slipChips"></div>
       </div>
     </div>
@@ -177,17 +182,49 @@ const GAMES = {
   classiclotto:{name:"Classic Lotto", kind:"balls", main:6, mainMax:49, sched:[{days:[1,3,6], draw:"19:05", cutoff:"19:00"}]},
   millionaireforlife:{name:"Millionaire for Life", kind:"balls", main:5, mainMax:58, bonusMax:5, bonusName:"Millionaire Ball", sched:[{days:[0,1,2,3,4,5,6], draw:"23:15", cutoff:"22:15"}]}
 };
-const CLOSERS = [
-  "A door overlooked by all opens for the one who knocks softly.",
+const FORTUNES = [
+  "A pleasant surprise is waiting for you around the next corner.",
+  "You will soon receive good news from someone you have not heard from in a while.",
+  "An unexpected friendship will bring you more than you expect.",
+  "The person beside you has something worth hearing. Listen first.",
+  "A small act of kindness today returns to you tenfold.",
+  "You are about to make a decision you will be proud of for years.",
+  "Good things come to those who finish what they start.",
+  "Your patience is about to be rewarded in an unusual way.",
+  "An old friend will reappear, and bring a new opportunity along.",
+  "The next meal you share with loved ones will be a lucky one.",
+  "You will find what you lost in the last place you think to look.",
+  "Someone is thinking of you fondly at this very moment.",
+  "Your hard work will soon pay off in a way you did not plan.",
+  "An open door is an invitation. Walk through it.",
+  "You will meet someone who changes your plans for the better.",
+  "Trust your first instinct on the next big question.",
+  "A cheerful heart makes its own luck.",
+  "A message you have been hoping for is already on its way.",
+  "Your table will soon be surrounded by people who love you.",
+  "Something you have been teaching yourself will suddenly feel easy.",
+  "You will sleep well tonight and wake up with the answer.",
+  "An investment in people pays the best interest.",
+  "The next song you hear will feel like it was meant for you.",
+  "You are closer to your goal than you were yesterday. That counts.",
+  "A stranger's kindness will remind you the world is mostly good.",
+  "Plant kindness and gather love.",
+  "Your family is your fortune. The numbers below are just decoration.",
+  "A new chapter begins quietly, then all at once.",
+  "You will soon be asked a question that only you can answer.",
+  "The best time to plant a tree was twenty years ago. The second best time is today.",
+  "You will make a friend of someone you once disagreed with.",
+  "Good news travels fast. Yours is already moving.",
+  "An admirer is hiding a smile behind ordinary words.",
+  "You will conquer an obstacle you have been putting off.",
+  "Soon, a small risk will bring a large smile.",
+  "A journey of a thousand miles begins with a single step. Take it this week.",
+  "Prosperity comes to the house where laughter lives.",
+  "Accept the next compliment without arguing with it.",
+  "Do not mistake the map for the journey — but do check the map.",
   "Fortune favors the patient hand and the playful heart.",
-  "What ripens slowly, sweetens deeply.",
-  "The stars incline us; they do not bind us.",
-  "Luck is a guest — prepare the house, but never chase the visitor.",
-  "A small wager on wonder is never wasted.",
-  "The cookie knows nothing. That is its wisdom.",
-  "Good fortune is a river: step in, don't shout at it.",
-  "Tonight the ordinary hides a hinge; everything turns on it.",
-  "Share a lucky moment and it doubles. Hoard it and it fades."
+  "Share a lucky moment and it doubles. Hoard it and it fades.",
+  "The cookie has spoken. The rest is up to you."
 ];
 let game = "pick3", mode = "blend", win = 100;
 const $ = id => document.getElementById(id);
@@ -283,17 +320,19 @@ function makePick(){
   return {mainPicks, bonusPick, story, drawsUsed: wDraws.length};
 }
 
-function fortuneFor(pick){
-  const {story} = pick;
-  const parts = [];
-  if (story.sleepiest && story.sleepiest.since >= 5)
-    parts.push(`The ${story.sleepiest.v} has slept for ${story.sleepiest.since} draws. Even dragons wake.`);
-  if (story.hottest && story.hottest.freq >= 3)
-    parts.push(`${story.hottest.v} burns bright — drawn ${story.hottest.freq} times in the recent moons.`);
-  if (!parts.length)
-    parts.push("The numbers keep their counsel tonight; even silence is an answer.");
-  parts.push(CLOSERS[Math.floor(Math.random()*CLOSERS.length)]);
-  return parts.join(" ");
+let lastFortune = -1;
+function fortuneFor(){
+  let i = Math.floor(Math.random()*FORTUNES.length);
+  if (i === lastFortune) i = (i + 1) % FORTUNES.length;
+  lastFortune = i;
+  return FORTUNES[i];
+}
+function luckyLine(pick){
+  const g = GAMES[game];
+  const nums = pick.mainPicks.map(p => p.v).join(" – ");
+  let s = nums;
+  if (pick.bonusPick) s += `  +  ${g.bonusName} ${pick.bonusPick.v}`;
+  return s;
 }
 
 /* ---------- ui ---------- */
@@ -313,16 +352,30 @@ function buildPills(){
   document.querySelectorAll("#gamePills .pill").forEach(b =>
     b.onclick = () => { game = b.dataset.game; buildPills(); renderLatest(); renderCutoff(); resetCookie(); });
 }
+const MODE_NOTES = {
+  blend: "✨ <b>Destiny Blend</b> — the balanced pick. The cookie mixes numbers that have been hitting often with numbers that are long overdue, so your slip gets a little of both.",
+  hot: "🔥 <b>Hot Streak</b> — ride the hot hand. The cookie favors the numbers that have come up most often lately, on the theory that hot numbers stay hot.",
+  overdue: "🌙 <b>Long Sleep</b> — wake the sleepers. The cookie favors the numbers that haven't been drawn in the longest time, on the theory that they're due."
+};
+function updateModeNote(){
+  const span = mode === "overdue"
+    ? " How long each number has slept is counted across the full history on record."
+    : " Judged from " + (win === 0 ? "the game's full draw history on record" : "the last " + win + " draws") + ".";
+  $("modeNote").innerHTML = MODE_NOTES[mode] + span;
+}
 $("modeSeg").querySelectorAll(".pill").forEach(b => b.onclick = () => {
   mode = b.dataset.mode;
   $("modeSeg").querySelectorAll(".pill").forEach(x => x.classList.toggle("on", x===b));
+  updateModeNote();
   resetCookie();
 });
 $("winSeg").querySelectorAll(".pill").forEach(b => b.onclick = () => {
   win = parseInt(b.dataset.win, 10);
   $("winSeg").querySelectorAll(".pill").forEach(x => x.classList.toggle("on", x===b));
+  updateModeNote();
   resetCookie();
 });
+updateModeNote();
 
 let currentPick = null;
 function resetCookie(){
@@ -341,7 +394,8 @@ function crack(){
     html += `<span class="plus">+</span><div class="ball bonus">${currentPick.bonusPick.v}</div>`;
   $("slipBalls").innerHTML = html;
   $("slipBonusName").textContent = currentPick.bonusPick ? g.bonusName : "";
-  $("slipFortune").textContent = fortuneFor(currentPick);
+  $("slipFortune").textContent = fortuneFor();
+  $("slipLucky").innerHTML = `<b>Lucky Numbers</b><br>${luckyLine(currentPick)}`;
   const s = currentPick.story;
   $("slipChips").innerHTML =
     `<span class="chip">🌙 Longest sleeper: ${s.sleepiest.v} · ${s.sleepiest.since} draws</span>` +
@@ -373,8 +427,8 @@ function renderJar(){
   $("jarList").innerHTML = jar.map((s, i) => `
     <div class="jar-item">
       <div class="jar-top"><span class="jar-game">${s.gameName}</span><span class="jar-date">${s.when}</span></div>
-      <div class="jar-nums">${s.label}</div>
       <div class="jar-fortune">“${s.fortune}”</div>
+      <div class="jar-nums">Lucky Numbers: ${s.label}</div>
       <button class="jar-del" data-i="${i}">remove</button>
     </div>`).join("");
   document.querySelectorAll(".jar-del").forEach(b => b.onclick = () => {
@@ -384,8 +438,7 @@ function renderJar(){
 $("keepBtn").onclick = () => {
   if (!currentPick){ crack(); if (!currentPick) return; }
   const g = GAMES[game];
-  const nums = currentPick.mainPicks.map(p => p.v).join(" – ");
-  const label = currentPick.bonusPick ? `${nums}  +  ${currentPick.bonusPick.v}` : nums;
+  const label = luckyLine(currentPick);
   const jar = loadJar();
   jar.unshift({ gameName: g.name, label,
     fortune: $("slipFortune").textContent,
