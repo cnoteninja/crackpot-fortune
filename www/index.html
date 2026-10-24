@@ -102,7 +102,46 @@
   .jar-nums{font-size:1.06rem; letter-spacing:.06em; margin:3px 0}
   .jar-fortune{font-family:Georgia,serif; font-style:italic; font-size:.88rem; opacity:.85; line-height:1.4}
   .jar-del{background:none; border:none; color:#ff9d85; font-size:.78rem; cursor:pointer; padding:2px 0}
+  .jar-item.winner{border-color:var(--gold); background:linear-gradient(180deg,#f2c14e26,#ffffff0d); box-shadow:0 0 14px #f2c14e44}
+  .jar-badge{color:var(--gold); font-weight:700; font-size:.9rem; margin-top:4px}
+  .jar-replay{background:none; border:1px solid var(--line); color:var(--gold); border-radius:999px; font-size:.78rem; padding:4px 10px; cursor:pointer; margin:6px 8px 0 0}
+  .jar-check{width:100%; background:#f2c14e1a; border:1px solid var(--gold); color:var(--gold); border-radius:12px; padding:11px; font-size:.95rem; font-weight:700; cursor:pointer; margin-bottom:4px}
+  .jar-check:active{transform:scale(.99)}
+  .jar-status{font-size:.88rem; color:var(--gold); min-height:1.2em; margin:4px 2px 8px; text-align:center}
   .empty{opacity:.65; font-size:.9rem; text-align:center; padding:8px 0 2px}
+  /* win celebration overlay */
+  .win-overlay{position:fixed; inset:0; z-index:60; background:rgba(10,7,28,.94); display:flex; align-items:center; justify-content:center; overflow:hidden}
+  .win-overlay[hidden]{display:none}
+  .win-overlay.jflash{animation:winFlash .9s ease-in-out 3}
+  @keyframes winFlash{0%,100%{background:rgba(10,7,28,.94)}50%{background:rgba(84,60,10,.96)}}
+  #winCanvas{position:absolute; inset:0; width:100%; height:100%; pointer-events:none}
+  .win-lights{position:absolute; inset:0; pointer-events:none; padding:16px;
+    background-image:radial-gradient(circle, #ffe9a8 3px, rgba(255,233,168,0) 5px);
+    background-size:32px 32px;
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude;
+    animation:bulbA .9s steps(1) infinite}
+  .win-lights:before{content:""; position:absolute; inset:0; padding:16px;
+    background-image:radial-gradient(circle, #ff7a4d 3px, rgba(255,122,77,0) 5px);
+    background-size:32px 32px; background-position:16px 16px;
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude;
+    animation:bulbB .9s steps(1) infinite}
+  @keyframes bulbA{0%,49%{opacity:1}50%,100%{opacity:.12}}
+  @keyframes bulbB{0%,49%{opacity:.12}50%,100%{opacity:1}}
+  .win-card{position:relative; z-index:2; text-align:center; padding:24px 18px; max-width:92vw}
+  .win-headline{font-family:Georgia,"Times New Roman",serif; font-size:2.7rem; line-height:1.1; color:var(--gold); letter-spacing:.03em;
+    animation:winPop .6s cubic-bezier(.2,1.6,.4,1) both, winGlow 1.2s ease-in-out .6s infinite alternate}
+  @keyframes winPop{from{transform:scale(.3); opacity:0}to{transform:scale(1); opacity:1}}
+  @keyframes winGlow{from{text-shadow:0 0 14px #f2c14e66}to{text-shadow:0 0 30px #f2c14ecc, 0 0 64px #f2c14e66}}
+  .win-game{font-size:1.08rem; font-weight:700; margin-top:8px}
+  .win-detail{font-size:1rem; opacity:.94; margin-top:5px}
+  .win-balls{margin-top:16px}
+  .ball.hit{box-shadow:0 0 0 3px #ffffff38, 0 0 18px 6px #f2c14eaa, inset -3px -5px 9px #8a5a1466, 0 4px 9px #0005;
+    animation:ballBounce .85s ease-in-out infinite alternate}
+  @keyframes ballBounce{from{transform:translateY(0)}to{transform:translateY(-7px)}}
+  .win-date{opacity:.78; font-size:.9rem; margin-top:8px}
+  .win-collect{margin-top:18px; padding:13px 26px; flex:none}
   footer{margin-top:22px; font-size:.78rem; line-height:1.55; opacity:.66; text-align:center; padding:0 8px}
   footer b{color:var(--gold); opacity:1}
 </style>
@@ -161,6 +200,8 @@
 
   <section class="card">
     <p class="lbl">🍪 Your cookie jar — saved slips</p>
+    <button class="jar-check" id="checkWinsBtn">Check my slips for wins 🎉</button>
+    <p class="jar-status" id="jarStatus"></p>
     <div id="jarList"></div>
   </section>
 
@@ -168,6 +209,19 @@
     Draw history through <b>Oct 23, 2026</b> — Ohio Pick 3/4/5, Rolling Cash 5 &amp; Classic Lotto via LotteryUSA's results archive; Mega Millions, Powerball &amp; Millionaire for Life via New York Lottery open data.<br>
     The honest print: every draw is independent and no cookie, however charming, can predict one. Crackpot Fortune reads patterns for the joy of it. Play for fun, never with money you need.
   </footer>
+</div>
+
+<div class="win-overlay" id="winOverlay" hidden>
+  <canvas id="winCanvas"></canvas>
+  <div class="win-lights"></div>
+  <div class="win-card">
+    <div class="win-headline" id="winHeadline">★ JACKPOT ★</div>
+    <div class="win-game" id="winGame"></div>
+    <div class="win-detail" id="winDetail"></div>
+    <div class="balls win-balls" id="winBalls"></div>
+    <div class="win-date" id="winDate"></div>
+    <button class="act keep win-collect" id="winCollectBtn">Collect my glory 🏆</button>
+  </div>
 </div>
 
 <script>
@@ -421,26 +475,325 @@ $("againBtn").onclick = () => { resetCookie(); setTimeout(crack, 60); };
 /* ---------- cookie jar ---------- */
 function loadJar(){ try { return JSON.parse(localStorage.getItem("crackpotJar") || "[]"); } catch(e){ return []; } }
 function saveJar(j){ localStorage.setItem("crackpotJar", JSON.stringify(j)); }
+/* ---------- win checking ---------- */
+const TIER_RANK = {mini:1, win:2, big:3, jackpot:4};
+
+/* Normalize any jar entry (new structured or legacy display-only) to
+   {game, main[], bonus|null, savedDate} — or null if it can't be read. */
+function normalizeSlip(s){
+  if (s.game && Array.isArray(s.main) && s.main.length && GAMES[s.game]){
+    const sd = s.savedISO ? new Date(s.savedISO) : null;
+    return { game: s.game, main: s.main.slice(),
+      bonus: (s.bonus != null ? s.bonus : null),
+      savedDate: (sd && !isNaN(sd)) ? sd : new Date(0) };
+  }
+  const kv = Object.entries(GAMES).find(([,g]) => g.name === s.gameName);
+  if (!kv || !s.label) return null;
+  const [key, g] = kv;
+  const parts = String(s.label).split("+");
+  const main = parts[0].split(/[–—-]/).map(x => parseInt(x.trim(), 10)).filter(v => !isNaN(v));
+  const need = g.kind === "digits" ? g.positions : g.main;
+  if (main.length !== need) return null;
+  let bonus = null;
+  if (parts.length > 1 && g.bonusName){
+    const m = parts.slice(1).join("+").replace(g.bonusName, "").match(/\d+/);
+    if (m) bonus = parseInt(m[0], 10);
+  }
+  let savedDate = null;
+  if (s.when){
+    const yr = new Date().getFullYear();
+    const d = new Date(s.when + ", " + yr);
+    if (!isNaN(d)){
+      if (d.getTime() > Date.now() + 864e5) d.setFullYear(yr - 1);
+      savedDate = d;
+    }
+  }
+  if (!savedDate) return null;
+  return { game: key, main, bonus, savedDate };
+}
+
+/* A draw's local date-time: same-day draws (Pick midday/evening) take the
+   game's scheduled draw times for that weekday, in array order. */
+function drawDateTime(gameKey, draw, sameDayIndex){
+  const g = GAMES[gameKey];
+  const dow = new Date(draw.date + "T12:00:00").getDay();
+  const times = (g.sched || []).filter(s => s.days.includes(dow)).map(s => s.draw).sort();
+  const t = times.length ? times[Math.min(sameDayIndex, times.length - 1)] : "23:59";
+  const [h, m] = t.split(":").map(Number);
+  const d = new Date(draw.date + "T00:00:00");
+  d.setHours(h, m, 0, 0);
+  return d;
+}
+/* Eligible draws: strictly after the saved date, plus same-date draws whose
+   scheduled draw time is after the moment the slip was saved. */
+function eligibleDraws(gameKey, savedDate){
+  const draws = DATA[gameKey] || [];
+  const seen = {}, out = [];
+  draws.forEach(d => {
+    const idx = seen[d.date] || 0; seen[d.date] = idx + 1;
+    if (drawDateTime(gameKey, d, idx) > savedDate) out.push(d);
+  });
+  return out;
+}
+function tierForBalls(gameKey, m, b){
+  if (gameKey === "rollingcash5") return m===5 ? "jackpot" : m===4 ? "big" : m===3 ? "win" : m===2 ? "mini" : null;
+  if (gameKey === "classiclotto") return m===6 ? "jackpot" : m===5 ? "big" : m===4 ? "win" : m===3 ? "mini" : null;
+  if (m === 5) return b ? "jackpot" : "big";
+  if (m === 4) return b ? "big" : "win";
+  if (m === 3) return b ? "win" : "mini";
+  if (m === 2 || m === 1 || m === 0) return b ? "mini" : null;
+  return null;
+}
+function scoreDraw(slip, d){
+  const g = GAMES[slip.game];
+  if (g.kind === "digits"){
+    if (slip.main.length === d.numbers.length && slip.main.every((v, i) => v === d.numbers[i]))
+      return { tier:"jackpot", matchKind:"straight", mainMatches: slip.main.length, bonusMatch: false };
+    const a = [...slip.main].sort((x, y) => x - y), b = [...d.numbers].sort((x, y) => x - y);
+    if (a.length === b.length && a.every((v, i) => v === b[i]))
+      return { tier:"win", matchKind:"box", mainMatches: slip.main.length, bonusMatch: false };
+    return null;
+  }
+  const set = new Set(d.numbers);
+  const mainMatches = slip.main.filter(v => set.has(v)).length;
+  const bonusMatch = slip.bonus != null && d.bonus != null && slip.bonus === d.bonus;
+  const tier = tierForBalls(slip.game, mainMatches, bonusMatch);
+  if (!tier) return null;
+  return { tier, matchKind:"balls", mainMatches, bonusMatch };
+}
+function checkSlip(slip){
+  if (!slip || !GAMES[slip.game]) return null;
+  let best = null;
+  for (const d of eligibleDraws(slip.game, slip.savedDate)){
+    const r = scoreDraw(slip, d);
+    if (!r) continue;
+    if (!best || TIER_RANK[r.tier] > TIER_RANK[best.tier])
+      best = { ...r, drawDate: d.date, drawNumbers: d.numbers.slice(), drawBonus: (d.bonus != null ? d.bonus : null) };
+  }
+  return best;
+}
+function describeMatch(w){
+  const g = GAMES[w.game];
+  if (!g) return "a winning match";
+  if (g.kind === "digits")
+    return w.matchKind === "straight"
+      ? `straight hit — all ${w.drawNumbers.length} digits in exact order`
+      : `matched all ${w.drawNumbers.length} digits (box)`;
+  let txt = "";
+  if (w.mainMatches > 0) txt = `matched ${w.mainMatches} of ${g.main}`;
+  if (w.bonusMatch) txt = txt ? `${txt} + the ${g.bonusName}` : `matched the ${g.bonusName}`;
+  return txt || "a winning match";
+}
+function fmtDay(iso){
+  return new Date(iso + "T12:00:00").toLocaleDateString("en-US", {weekday:"short", month:"short", day:"numeric"});
+}
+/* Recompute an entry's win against current draw data; cache on the entry. */
+function refreshWinInfo(s){
+  const slip = normalizeSlip(s);
+  const res = slip ? checkSlip(slip) : null;
+  const key = res ? [res.tier, res.drawDate, res.drawNumbers.join(","), res.drawBonus == null ? "" : res.drawBonus].join("|") : null;
+  const curKey = s.winInfo ? s.winInfo.key : null;
+  if (key === curKey) return false;
+  if (res) s.winInfo = { ...res, key, game: slip.game, slipMain: slip.main, slipBonus: slip.bonus, celebrated: false };
+  else delete s.winInfo;
+  return true;
+}
+
 function renderJar(){
   const jar = loadJar();
+  let dirty = false;
+  jar.forEach(s => { if (refreshWinInfo(s)) dirty = true; });
+  if (dirty) saveJar(jar);
   if (!jar.length){ $("jarList").innerHTML = `<p class="empty">No slips saved yet. Crack a cookie, then keep the ones that feel lucky.</p>`; return; }
-  $("jarList").innerHTML = jar.map((s, i) => `
-    <div class="jar-item">
+  $("jarList").innerHTML = jar.map((s, i) => {
+    const w = s.winInfo;
+    return `
+    <div class="jar-item${w ? " winner" : ""}">
       <div class="jar-top"><span class="jar-game">${s.gameName}</span><span class="jar-date">${s.when}</span></div>
       <div class="jar-fortune">“${s.fortune}”</div>
       <div class="jar-nums">Lucky Numbers: ${s.label}</div>
+      ${w ? `<div class="jar-badge">🏆 WINNER — ${describeMatch(w)} · ${fmtDay(w.drawDate)}</div>` : ""}
+      ${w ? `<button class="jar-replay" data-i="${i}">🎉 Replay celebration</button>` : ""}
       <button class="jar-del" data-i="${i}">remove</button>
-    </div>`).join("");
+    </div>`;
+  }).join("");
   document.querySelectorAll(".jar-del").forEach(b => b.onclick = () => {
     const jar = loadJar(); jar.splice(parseInt(b.dataset.i, 10), 1); saveJar(jar); renderJar();
   });
+  document.querySelectorAll(".jar-replay").forEach(b => b.onclick = () => {
+    const jar = loadJar(); const i = parseInt(b.dataset.i, 10);
+    if (jar[i] && jar[i].winInfo) showCelebration(jar[i], i);
+  });
 }
+$("checkWinsBtn").onclick = () => {
+  renderJar();
+  const jar = loadJar();
+  const wins = [], fresh = [];
+  jar.forEach((s, i) => { if (s.winInfo){ wins.push(i); if (!s.winInfo.celebrated) fresh.push(i); } });
+  if (fresh.length){
+    let bi = fresh[0];
+    fresh.forEach(i => { if (TIER_RANK[jar[i].winInfo.tier] > TIER_RANK[jar[bi].winInfo.tier]) bi = i; });
+    $("jarStatus").textContent = "";
+    showCelebration(jar[bi], bi);
+  } else if (wins.length){
+    $("jarStatus").textContent = "Already celebrated those wins — tap “Replay celebration” on a slip to see it again. 🏆";
+  } else {
+    $("jarStatus").textContent = "No wins yet — your next draw could be the one. 🍀";
+  }
+};
+
+/* ---------- win celebration ---------- */
+let celebTier = "win", winAnim = null, fanfareCtx = null, fanfareScheduled = false;
+function playFanfare(tier){
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    if (!fanfareCtx) fanfareCtx = new AC();
+    if (fanfareCtx.state === "suspended") fanfareCtx.resume();
+    if (fanfareScheduled) return;
+    fanfareScheduled = true;
+    const base = [523.25, 659.25, 783.99, 1046.5];
+    const seqs = { mini:[0,1,2], win:[0,1,2,3], big:[0,1,2,3,2,3], jackpot:[0,1,2,3,0,1,2,3,3,3] };
+    const seq = seqs[tier] || seqs.win;
+    const t0 = fanfareCtx.currentTime + 0.03;
+    seq.forEach((n, i) => {
+      const t = t0 + i * 0.13;
+      const o = fanfareCtx.createOscillator(), gn = fanfareCtx.createGain();
+      o.type = "triangle"; o.frequency.value = base[n];
+      gn.gain.setValueAtTime(0.0001, t);
+      gn.gain.exponentialRampToValueAtTime(0.22, t + 0.02);
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
+      o.connect(gn); gn.connect(fanfareCtx.destination);
+      o.start(t); o.stop(t + 0.4);
+      const o2 = fanfareCtx.createOscillator(), g2 = fanfareCtx.createGain();
+      o2.type = "sine"; o2.frequency.value = base[n] * 2;
+      g2.gain.setValueAtTime(0.0001, t);
+      g2.gain.exponentialRampToValueAtTime(0.07, t + 0.02);
+      g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+      o2.connect(g2); g2.connect(fanfareCtx.destination);
+      o2.start(t); o2.stop(t + 0.3);
+    });
+    const end = t0 + seq.length * 0.13;
+    [0, 1, 2, 3].forEach(n => {
+      const o = fanfareCtx.createOscillator(), gn = fanfareCtx.createGain();
+      o.type = "triangle"; o.frequency.value = base[n];
+      gn.gain.setValueAtTime(0.0001, end);
+      gn.gain.exponentialRampToValueAtTime(0.1, end + 0.03);
+      gn.gain.exponentialRampToValueAtTime(0.0001, end + 0.55);
+      o.connect(gn); gn.connect(fanfareCtx.destination);
+      o.start(end); o.stop(end + 0.6);
+    });
+    setTimeout(() => { fanfareScheduled = false; }, (seq.length * 0.13 + 1) * 1000);
+  } catch(e){}
+}
+function startWinFX(tier){
+  const cv = $("winCanvas"); if (!cv || !cv.getContext) return;
+  const ctx = cv.getContext("2d");
+  cv.width = window.innerWidth || 360; cv.height = window.innerHeight || 640;
+  const conf = { mini:{dur:2600, rate:3, coins:0.15}, win:{dur:3800, rate:5, coins:0.3},
+                 big:{dur:5200, rate:8, coins:0.55}, jackpot:{dur:6800, rate:11, coins:0.8} }[tier]
+               || {dur:3800, rate:5, coins:0.3};
+  const colors = ["#f2c14e", "#e4572e", "#f7ead1", "#ffe9a8", "#c9932b", "#ffffff"];
+  const parts = [], start = performance.now();
+  function spawn(){
+    const coin = Math.random() < conf.coins;
+    parts.push({ x: Math.random() * cv.width, y: -24 - Math.random() * 40,
+      vx: (Math.random() - 0.5) * 1.6, vy: 2 + Math.random() * 3,
+      s: coin ? 9 + Math.random() * 8 : 5 + Math.random() * 6,
+      r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.25,
+      coin, color: colors[(Math.random() * colors.length) | 0], flip: Math.random() * Math.PI });
+  }
+  function frame(now){
+    const el = now - start;
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    if (el < conf.dur) for (let i = 0; i < conf.rate; i++) if (Math.random() < 0.9) spawn();
+    for (let i = parts.length - 1; i >= 0; i--){
+      const p = parts[i];
+      p.x += p.vx + Math.sin(now / 300 + p.r) * 0.6;
+      p.y += p.vy; p.r += p.vr; p.flip += 0.08;
+      if (p.y > cv.height + 30){ parts.splice(i, 1); continue; }
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r);
+      if (p.coin){
+        const w = Math.abs(Math.cos(p.flip));
+        ctx.beginPath(); ctx.ellipse(0, 0, p.s * w + 1, p.s, 0, 0, Math.PI * 2);
+        ctx.fillStyle = "#f2c14e"; ctx.fill();
+        ctx.strokeStyle = "#c9932b"; ctx.lineWidth = 2; ctx.stroke();
+        if (w > 0.35){
+          ctx.fillStyle = "#c9932b";
+          ctx.font = "bold " + Math.round(p.s) + "px Georgia, serif";
+          ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillText("★", 0, 1);
+        }
+      } else {
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2);
+      }
+      ctx.restore();
+    }
+    if (el < conf.dur + 1800 || parts.length) winAnim = requestAnimationFrame(frame);
+    else { ctx.clearRect(0, 0, cv.width, cv.height); winAnim = null; }
+  }
+  if (winAnim) cancelAnimationFrame(winAnim);
+  winAnim = requestAnimationFrame(frame);
+}
+function stopWinFX(){
+  if (winAnim) cancelAnimationFrame(winAnim);
+  winAnim = null;
+  const cv = $("winCanvas");
+  if (cv && cv.getContext) cv.getContext("2d").clearRect(0, 0, cv.width, cv.height);
+}
+function showCelebration(s, jarIndex){
+  const w = s.winInfo; if (!w) return;
+  const g = GAMES[w.game]; if (!g) return;
+  celebTier = w.tier;
+  $("winHeadline").textContent = { mini:"WINNER!", win:"YOU WON!", big:"BIG WIN!", jackpot:"★ JACKPOT ★" }[w.tier] || "YOU WON!";
+  $("winGame").textContent = g.name;
+  const desc = describeMatch(w);
+  $("winDetail").textContent = desc.charAt(0).toUpperCase() + desc.slice(1) + "!";
+  const slipSet = new Set(w.slipMain || []);
+  let html = w.drawNumbers.map((n, idx) => {
+    const hit = g.kind === "digits" ? true : slipSet.has(n);
+    return `<div class="ball ${g.kind === "digits" ? "digit" : ""}${hit ? " hit" : ""}" style="animation-delay:${(idx * 0.12).toFixed(2)}s">${n}</div>`;
+  }).join("");
+  if (g.bonusName && w.drawBonus != null)
+    html += `<span class="plus">+</span><div class="ball bonus${w.bonusMatch ? " hit" : ""}" style="animation-delay:.65s">${w.drawBonus}</div>`;
+  $("winBalls").innerHTML = html;
+  $("winDate").textContent = "Winning draw · " + fmtDate(w.drawDate);
+  const ov = $("winOverlay");
+  ov.hidden = false;
+  ov.classList.toggle("jflash", w.tier === "jackpot");
+  startWinFX(w.tier);
+  playFanfare(w.tier);
+  if ((w.tier === "big" || w.tier === "jackpot") && navigator.vibrate){
+    try { navigator.vibrate([90, 60, 90, 60, 220]); } catch(e){}
+  }
+  if (typeof jarIndex === "number"){
+    const jar = loadJar();
+    if (jar[jarIndex] && jar[jarIndex].winInfo){
+      jar[jarIndex].winInfo.celebrated = true;
+      saveJar(jar); renderJar();
+    }
+  }
+}
+$("winCollectBtn").onclick = () => {
+  try {
+    if (fanfareCtx && fanfareCtx.state === "suspended") fanfareCtx.resume();
+    else if (!fanfareScheduled) playFanfare(celebTier);
+  } catch(e){}
+  stopWinFX();
+  const ov = $("winOverlay");
+  ov.hidden = true;
+  ov.classList.remove("jflash");
+};
 $("keepBtn").onclick = () => {
   if (!currentPick){ crack(); if (!currentPick) return; }
   const g = GAMES[game];
   const label = luckyLine(currentPick);
   const jar = loadJar();
   jar.unshift({ gameName: g.name, label,
+    game, main: currentPick.mainPicks.map(p => p.v),
+    bonus: currentPick.bonusPick ? currentPick.bonusPick.v : null,
+    savedISO: new Date().toISOString(),
     fortune: $("slipFortune").textContent,
     when: new Date().toLocaleDateString("en-US", {month:"short", day:"numeric"}) + ", " +
           new Date().toLocaleTimeString("en-US", {hour:"numeric", minute:"2-digit"}) });
@@ -504,6 +857,20 @@ function renderCutoff(){
 setInterval(renderCutoff, 30000);
 
 buildPills(); renderLatest(); renderCutoff(); renderJar();
+
+/* On load: if a saved slip has a win that hasn't been celebrated yet,
+   throw the party for the single best one. */
+setTimeout(() => {
+  const jar = loadJar();
+  let bi = -1;
+  jar.forEach((s, i) => {
+    if (!s.winInfo || s.winInfo.celebrated) return;
+    if (bi < 0 || TIER_RANK[s.winInfo.tier] > TIER_RANK[jar[bi].winInfo.tier] ||
+        (TIER_RANK[s.winInfo.tier] === TIER_RANK[jar[bi].winInfo.tier] && s.winInfo.drawDate < jar[bi].winInfo.drawDate))
+      bi = i;
+  });
+  if (bi >= 0) showCelebration(jar[bi], bi);
+}, 500);
 </script>
 </body>
 </html>
