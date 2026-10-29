@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Crackpot Fortune — a fortune-cookie lottery picker for Ohio's 8 draw games</title>
+<style>
+  :root{
+    --ink:#f5eeda; --gold:#f2c14e; --gold-deep:#c9932b; --paper:#f7ead1;
+    --paper-ink:#4a3419; --indigo:#171233; --card:rgba(255,255,255,.06);
+    --line:rgba(242,193,78,.35); --red:#e4572e;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0; padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    color:var(--ink); min-height:100vh;
+    background:
+      radial-gradient(2px 2px at 12% 22%, #fff8 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 78% 12%, #fff9 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 34% 8%, #fff6 50%, transparent 51%),
+      radial-gradient(2px 2px at 88% 34%, #fff7 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 55% 18%, #fff5 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 6% 55%, #fff5 50%, transparent 51%),
+      radial-gradient(2px 2px at 95% 62%, #fff6 50%, transparent 51%),
+      linear-gradient(180deg,#120e2e 0%, #1d1440 55%, #241a4d 100%);
+    background-attachment:fixed;
+  }
+  .wrap{max-width:560px; margin:0 auto; padding:20px 16px 48px}
+  header{text-align:center; padding:10px 0 2px}
+  h1{font-family:Georgia,"Times New Roman",serif; font-size:2rem; margin:0; letter-spacing:.5px; color:var(--gold)}
+  h1 .cookie{display:inline-block; transform:rotate(-8deg)}
+  .tag{opacity:.85; font-size:.95rem; margin:6px 0 2px}
+  .moon{font-size:.82rem; opacity:.75; margin-top:2px}
+  .cutoff{font-size:.92rem; margin-top:6px; color:var(--gold); min-height:1.2em}
+  .art{width:100%; border-radius:16px; border:1px solid var(--line); margin:14px 0 4px; display:block; box-shadow:0 10px 30px #0007}
+  section.card{background:var(--card); border:1px solid var(--line); border-radius:18px; padding:16px; margin-top:16px; backdrop-filter:blur(3px)}
+  .lbl{font-size:.78rem; text-transform:uppercase; letter-spacing:.14em; color:var(--gold); margin:0 0 8px}
+  .pills{display:flex; flex-wrap:wrap; gap:8px}
+  .pill{border:1px solid var(--line); background:#ffffff10; color:var(--ink); padding:9px 13px; border-radius:999px; font-size:.92rem; cursor:pointer; transition:all .15s}
+  .pill.on{background:var(--gold); color:#241a05; border-color:var(--gold); font-weight:700}
+  .seg{display:flex; gap:8px}
+  .seg .pill{flex:1; text-align:center; padding:9px 4px; font-size:.86rem}
+  .latest{font-size:.9rem; opacity:.9; margin-top:10px}
+  .mode-note{font-size:.92rem; line-height:1.5; opacity:.92; margin:10px 2px 0; min-height:2.6em}
+  .latest b{color:var(--gold)}
+  /* cookie stage */
+  .stage{text-align:center; padding:8px 0 2px; position:relative}
+  .cookie-zone{position:relative; min-height:430px; display:flex; align-items:center; justify-content:center}
+  .half{position:absolute; top:50%; left:50%; margin:-137px 0 0 -160px; width:320px; height:273px;
+    background-image:url(__COOKIE__); background-size:contain; background-position:center; background-repeat:no-repeat;
+    filter:drop-shadow(0 16px 18px rgba(0,0,0,.45));
+    transition:transform .8s cubic-bezier(.2,.9,.25,1.2), opacity .5s;
+    cursor:pointer; z-index:3}
+  
+  .half.left{clip-path:inset(0 50% 0 0)}
+  .half.right{clip-path:inset(0 0 0 50%)}
+  .cracked .half.left{transform:translate(-104px,72px) rotate(-15deg)}
+  .cracked .half.right{transform:translate(104px,72px) rotate(15deg)}
+  .slip{position:absolute; z-index:4; width:94%; max-width:430px; background:linear-gradient(180deg,#fdf3da,var(--paper));
+    color:var(--paper-ink); border-radius:6px; padding:16px 14px 13px; box-shadow:0 12px 30px #000a;
+    transform:translateY(58px) scale(.42) rotate(-2deg); opacity:0; transition:transform .9s .25s cubic-bezier(.2,.9,.3,1.15), opacity .4s .25s;
+    font-family:Georgia,serif}
+  .cracked .slip{transform:translateY(-56px) scale(1) rotate(-1.2deg); opacity:1}
+  .slip .game-name{font-size:.72rem; letter-spacing:.18em; text-transform:uppercase; color:#8a6a25; text-align:center; margin-bottom:8px}
+  .balls{display:flex; justify-content:center; align-items:center; gap:7px; flex-wrap:wrap; margin:4px 0 8px}
+  .ball{width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:1.12rem; color:#2a1c05; font-family:-apple-system,sans-serif;
+    background:radial-gradient(circle at 32% 28%, #ffe9a8, var(--gold) 58%, var(--gold-deep));
+    box-shadow:inset -3px -5px 9px #8a5a1466, 0 4px 9px #0005}
+  .ball.bonus{background:radial-gradient(circle at 32% 28%, #ffb59d, var(--red) 58%, #b23a17); color:#fff}
+  .ball.digit{border-radius:10px}
+  .plus{font-size:1.2rem; color:#8a6a25; font-weight:700}
+  .bonus-name{font-size:.7rem; color:#8a6a25; text-align:center; margin-top:-3px; letter-spacing:.08em; text-transform:uppercase}
+  .fortune{font-style:italic; font-size:1.05rem; line-height:1.45; text-align:center; margin:2px 2px 10px}
+  .lucky{text-align:center; font-size:.92rem; letter-spacing:.06em; color:#6d5320; margin:8px 2px 2px}
+  .lucky b{color:#8a2b1d; letter-spacing:.12em; font-size:.78rem; text-transform:uppercase}
+  .chips{display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-top:10px}
+  .chip{font-family:-apple-system,sans-serif; font-size:.72rem; background:#8a6a2522; border:1px solid #8a6a2544; color:#6d5316; padding:4px 9px; border-radius:999px}
+  .tap-hint{font-size:1rem; opacity:.9; margin:2px 0 0; animation:bob 2.2s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+  .spark{position:absolute; color:var(--gold); pointer-events:none; z-index:5; opacity:0; font-size:18px}
+  .cracked .spark{animation:sparkle 1.1s ease-out forwards}
+  @keyframes sparkle{0%{opacity:0; transform:scale(.3) translateY(6px)}35%{opacity:1}100%{opacity:0; transform:scale(1.25) translateY(-16px)}}
+  .actions{display:flex; gap:10px; margin-top:14px}
+  button.act{flex:1; border:none; border-radius:12px; padding:13px 10px; font-size:.98rem; font-weight:700; cursor:pointer}
+  .again{background:#ffffff14; color:var(--ink); border:1px solid var(--line) !important}
+  .keep{background:var(--gold); color:#241a05}
+  button.act:active{transform:scale(.98)}
+  /* jar */
+  .jar-item{background:#ffffff0d; border:1px solid #ffffff1c; border-radius:12px; padding:10px 12px; margin-bottom:9px}
+  .jar-top{display:flex; justify-content:space-between; align-items:baseline; gap:8px}
+  .jar-game{font-weight:700; color:var(--gold); font-size:.92rem}
+  .jar-date{font-size:.74rem; opacity:.65}
+  .jar-nums{font-size:1.06rem; letter-spacing:.06em; margin:3px 0}
+  .jar-fortune{font-family:Georgia,serif; font-style:italic; font-size:.88rem; opacity:.85; line-height:1.4}
+  .jar-del{background:none; border:none; color:#ff9d85; font-size:.78rem; cursor:pointer; padding:2px 0}
+  .jar-item.winner{border-color:var(--gold); background:linear-gradient(180deg,#f2c14e26,#ffffff0d); box-shadow:0 0 14px #f2c14e44}
+  .jar-badge{color:var(--gold); font-weight:700; font-size:.9rem; margin-top:4px}
+  .jar-replay{background:none; border:1px solid var(--line); color:var(--gold); border-radius:999px; font-size:.78rem; padding:4px 10px; cursor:pointer; margin:6px 8px 0 0}
+  .jar-check{width:100%; background:#f2c14e1a; border:1px solid var(--gold); color:var(--gold); border-radius:12px; padding:11px; font-size:.95rem; font-weight:700; cursor:pointer; margin-bottom:4px}
+  .jar-check:active{transform:scale(.99)}
+  .jar-status{font-size:.88rem; color:var(--gold); min-height:1.2em; margin:4px 2px 8px; text-align:center}
+  .empty{opacity:.65; font-size:.9rem; text-align:center; padding:8px 0 2px}
+  /* win celebration overlay */
+  .win-overlay{position:fixed; inset:0; z-index:60; background:rgba(10,7,28,.94); display:flex; align-items:center; justify-content:center; overflow:hidden}
+  .win-overlay[hidden]{display:none}
+  .win-overlay.jflash{animation:winFlash .9s ease-in-out 3}
+  @keyframes winFlash{0%,100%{background:rgba(10,7,28,.94)}50%{background:rgba(84,60,10,.96)}}
+  #winCanvas{position:absolute; inset:0; width:100%; height:100%; pointer-events:none}
+  .win-lights{position:absolute; inset:0; pointer-events:none; padding:16px;
+    background-image:radial-gradient(circle, #ffe9a8 3px, rgba(255,233,168,0) 5px);
+    background-size:32px 32px;
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude;
+    animation:bulbA .9s steps(1) infinite}
+  .win-lights:before{content:""; position:absolute; inset:0; padding:16px;
+    background-image:radial-gradient(circle, #ff7a4d 3px, rgba(255,122,77,0) 5px);
+    background-size:32px 32px; background-position:16px 16px;
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude;
+    animation:bulbB .9s steps(1) infinite}
+  @keyframes bulbA{0%,49%{opacity:1}50%,100%{opacity:.12}}
+  @keyframes bulbB{0%,49%{opacity:.12}50%,100%{opacity:1}}
+  .win-card{position:relative; z-index:2; text-align:center; padding:24px 18px; max-width:92vw}
+  .win-headline{font-family:Georgia,"Times New Roman",serif; font-size:2.7rem; line-height:1.1; color:var(--gold); letter-spacing:.03em;
+    animation:winPop .6s cubic-bezier(.2,1.6,.4,1) both, winGlow 1.2s ease-in-out .6s infinite alternate}
+  @keyframes winPop{from{transform:scale(.3); opacity:0}to{transform:scale(1); opacity:1}}
+  @keyframes winGlow{from{text-shadow:0 0 14px #f2c14e66}to{text-shadow:0 0 30px #f2c14ecc, 0 0 64px #f2c14e66}}
+  .win-game{font-size:1.08rem; font-weight:700; margin-top:8px}
+  .win-detail{font-size:1rem; opacity:.94; margin-top:5px}
+  .win-balls{margin-top:16px}
+  .ball.hit{box-shadow:0 0 0 3px #ffffff38, 0 0 18px 6px #f2c14eaa, inset -3px -5px 9px #8a5a1466, 0 4px 9px #0005;
+    animation:ballBounce .85s ease-in-out infinite alternate}
+  @keyframes ballBounce{from{transform:translateY(0)}to{transform:translateY(-7px)}}
+  .win-date{opacity:.78; font-size:.9rem; margin-top:8px}
+  .win-collect{margin-top:18px; padding:13px 26px; flex:none}
+  footer{margin-top:22px; font-size:.78rem; line-height:1.55; opacity:.66; text-align:center; padding:0 8px}
+  footer b{color:var(--gold); opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="cookie">🥠</span> Crackpot Fortune</h1>
+    <p class="tag">A fortune-cookie lottery picker for Ohio's 8 draw games. Every pick is generated from real draw history — hot numbers, long-overdue numbers, or a blend of both — and served the classic way: a fortune, then your lucky numbers.</p>
+    <p class="moon" id="moonLine"></p>
+    <img class="art" src="__ART__" alt="A fortune cookie cracking open under a starry sky, its slip glowing with numbers">
+  </header>
+
+  <section class="card">
+    <p class="lbl">Choose your game</p>
+    <div class="pills" id="gamePills"></div>
+    <p class="latest" id="latestLine"></p>
+    <p class="cutoff" id="cutoffLine"></p>
+  </section>
+
+  <section class="card">
+    <p class="lbl">How should the cookie choose?</p>
+    <div class="seg" id="modeSeg">
+      <button class="pill on" data-mode="blend">✨ Destiny Blend</button>
+      <button class="pill" data-mode="hot">🔥 Hot Streak</button>
+      <button class="pill" data-mode="overdue">🌙 Long Sleep</button>
+    </div>
+    <p class="mode-note" id="modeNote"></p>
+    <p class="lbl" style="margin-top:14px">Reading the last…</p>
+    <div class="seg" id="winSeg">
+      <button class="pill" data-win="30">30 draws</button>
+      <button class="pill on" data-win="100">100 draws</button>
+      <button class="pill" data-win="0">All draws</button>
+    </div>
+  </section>
+
+  <section class="card stage" id="stageCard">
+    <div class="cookie-zone" id="cookieZone">
+      <div class="half left" id="halfL"></div>
+      <div class="half right" id="halfR"></div>
+      <div class="slip" id="slip">
+        <div class="game-name" id="slipGame"></div>
+        <p class="fortune" id="slipFortune"></p>
+        <div class="balls" id="slipBalls"></div>
+        <div class="bonus-name" id="slipBonusName"></div>
+        <div class="lucky" id="slipLucky"></div>
+        <div class="chips" id="slipChips"></div>
+      </div>
+    </div>
+    <p class="tap-hint" id="tapHint">Tap the cookie to crack your fortune</p>
+    <div class="actions">
+      <button class="act again" id="againBtn">🥠 Crack another</button>
+      <button class="act keep" id="keepBtn">Keep this slip</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <p class="lbl">🍪 Your cookie jar — saved slips</p>
+    <button class="jar-check" id="checkWinsBtn">Check my slips for wins 🎉</button>
+    <p class="jar-status" id="jarStatus"></p>
+    <div id="jarList"></div>
+  </section>
+
+  <footer>
+    Draw history through <b>Oct 21, 2026</b> — Ohio Pick 3/4/5, Rolling Cash 5 &amp; Classic Lotto via LotteryUSA's results archive; Mega Millions, Powerball &amp; Millionaire for Life via New York Lottery open data.<br>
+    The honest print: every draw is independent and no cookie, however charming, can predict one. Crackpot Fortune reads patterns for the joy of it. Play for fun, never with money you need.
+  </footer>
+</div>
+
+<div class="win-overlay" id="winOverlay" hidden>
+  <canvas id="winCanvas"></canvas>
+  <div class="win-lights"></div>
+  <div class="win-card">
+    <div class="win-headline" id="winHeadline">★ JACKPOT ★</div>
+    <div class="win-game" id="winGame"></div>
+    <div class="win-detail" id="winDetail"></div>
+    <div class="balls win-balls" id="winBalls"></div>
+    <div class="win-date" id="winDate"></div>
+    <button class="act keep win-collect" id="winCollectBtn">Collect my glory 🏆</button>
+  </div>
+</div>
+
+<script>
+const DATA = /*__DATA__*/{};
+const GAMES = {
+  pick3:{name:"Ohio Pick 3", kind:"digits", positions:3, sched:[{days:[0,1,2,3,4,5,6], draw:"12:29", cutoff:"12:25", label:"Midday"},{days:[0,1,2,3,4,5,6], draw:"19:29", cutoff:"19:25", satCutoff:"19:45", label:"Evening"}]},
+  pick4:{name:"Ohio Pick 4", kind:"digits", positions:4, sched:[{days:[0,1,2,3,4,5,6], draw:"12:29", cutoff:"12:25", label:"Midday"},{days:[0,1,2,3,4,5,6], draw:"19:29", cutoff:"19:25", satCutoff:"19:45", label:"Evening"}]},
+  pick5:{name:"Ohio Pick 5", kind:"digits", positions:5, sched:[{days:[0,1,2,3,4,5,6], draw:"12:29", cutoff:"12:25", label:"Midday"},{days:[0,1,2,3,4,5,6], draw:"19:29", cutoff:"19:25", satCutoff:"19:45", label:"Evening"}]},
+  megamillions:{name:"Mega Millions", kind:"balls", main:5, mainMax:70, bonusMax:24, bonusName:"Mega Ball", sched:[{days:[2,5], draw:"23:00", cutoff:"22:45"}]},
+  powerball:{name:"Powerball", kind:"balls", main:5, mainMax:69, bonusMax:26, bonusName:"Powerball", sched:[{days:[1,3,6], draw:"22:59", cutoff:"22:00"}]},
+  rollingcash5:{name:"Rolling Cash 5", kind:"balls", main:5, mainMax:39, sched:[{days:[0,1,2,3,4,5,6], draw:"19:05", cutoff:"19:00"}]},
+  classiclotto:{name:"Classic Lotto", kind:"balls", main:6, mainMax:49, sched:[{days:[1,3,6], draw:"19:05", cutoff:"19:00"}]},
+  millionaireforlife:{name:"Millionaire for Life", kind:"balls", main:5, mainMax:58, bonusMax:5, bonusName:"Millionaire Ball", sched:[{days:[0,1,2,3,4,5,6], draw:"23:15", cutoff:"22:15"}]}
+};
+const FORTUNES = [
+  "A pleasant surprise is waiting for you around the next corner.",
+  "You will soon receive good news from someone you have not heard from in a while.",
+  "An unexpected friendship will bring you more than you expect.",
+  "The person beside you has something worth hearing. Listen first.",
+  "A small act of kindness today returns to you tenfold.",
+  "You are about to make a decision you will be proud of for years.",
+  "Good things come to those who finish what they start.",
+  "Your patience is about to be rewarded in an unusual way.",
+  "An old friend will reappear, and bring a new opportunity along.",
+  "The next meal you share with loved ones will be a lucky one.",
+  "You will find what you lost in the last place you think to look.",
+  "Someone is thinking of you fondly at this very moment.",
+  "Your hard work will soon pay off in a way you did not plan.",
+  "An open door is an invitation. Walk through it.",
+  "You will meet someone who changes your plans for the better.",
+  "Trust your first instinct on the next big question.",
+  "A cheerful heart makes its own luck.",
+  "A message you have been hoping for is already on its way.",
+  "Your table will soon be surrounded by people who love you.",
+  "Something you have been teaching yourself will suddenly feel easy.",
+  "You will sleep well tonight and wake up with the answer.",
+  "An investment in people pays the best interest.",
+  "The next song you hear will feel like it was meant for you.",
+  "You are closer to your goal than you were yesterday. That counts.",
+  "A stranger's kindness will remind you the world is mostly good.",
+  "Plant kindness and gather love.",
+  "Your family is your fortune. The numbers below are just decoration.",
+  "A new chapter begins quietly, then all at once.",
+  "You will soon be asked a question that only you can answer.",
+  "The best time to plant a tree was twenty years ago. The second best time is today.",
+  "You will make a friend of someone you once disagreed with.",
+  "Good news travels fast. Yours is already moving.",
+  "An admirer is hiding a smile behind ordinary words.",
+  "You will conquer an obstacle you have been putting off.",
+  "Soon, a small risk will bring a large smile.",
+  "A journey of a thousand miles begins with a single step. Take it this week.",
+  "Prosperity comes to the house where laughter lives.",
+  "Accept the next compliment without arguing with it.",
+  "Do not mistake the map for the journey — but do check the map.",
+  "Fortune favors the patient hand and the playful heart.",
+  "Share a lucky moment and it doubles. Hoard it and it fades.",
+  "The cookie has spoken. The rest is up to you."
+];
+let game = "pick3", mode = "blend", win = 100;
+const $ = id => document.getElementById(id);
+
+/* ---------- moon phase (a little mythic garnish) ---------- */
+(function(){
+  const synodic = 29.53058867, ref = Date.UTC(2000,0,6,18,14)/86400000;
+  const age = ((Date.now()/86400000 - ref) % synodic + synodic) % synodic;
+  const names = ["New Moon","Waxing Crescent","First Quarter","Waxing Gibbous","Full Moon","Waning Gibbous","Last Quarter","Waning Crescent"];
+  const icons = ["🌑","🌒","🌓","🌔","🌕","🌖","🌗","🌘"];
+  const i = Math.floor(age/synodic*8) % 8;
+  $("moonLine").textContent = icons[i] + " " + names[i] + " over Ohio tonight";
+})();
+
+/* ---------- engine ---------- */
+function windowDraws(draws){ return win === 0 ? draws : draws.slice(-win); }
+
+function statsFor(drawSets, pool){
+  // drawSets: chronological list of draws; each draw is an array of values from this pool.
+  // freq counts appearances; since counts whole draws since the value last appeared.
+  const freq = {}, since = {};
+  pool.forEach(v => { freq[v] = 0; since[v] = drawSets.length; });
+  drawSets.forEach(set => set.forEach(v => { freq[v]++; }));
+  pool.forEach(v => {
+    for (let i = drawSets.length - 1; i >= 0; i--){
+      if (drawSets[i].includes(v)){ since[v] = drawSets.length - 1 - i; break; }
+    }
+  });
+  return {freq, since};
+}
+function scoreMap(pool, st){
+  const maxF = Math.max(1, ...pool.map(v => st.freq[v]));
+  const maxS = Math.max(1, ...pool.map(v => st.since[v]));
+  const sc = {};
+  pool.forEach(v => {
+    const f = st.freq[v]/maxF, s = st.since[v]/maxS;
+    sc[v] = mode === "hot" ? f : mode === "overdue" ? s : (f + s)/2;
+  });
+  return sc;
+}
+function weightedPick(cands, scores){
+  const w = cands.map(v => Math.max(0.05, scores[v]));
+  let total = w.reduce((a,b) => a+b, 0), r = Math.random()*total;
+  for (let i = 0; i < cands.length; i++){ r -= w[i]; if (r <= 0) return cands[i]; }
+  return cands[cands.length-1];
+}
+function choose(pool, st, count){
+  const sc = scoreMap(pool, st);
+  const ranked = [...pool].sort((a,b) => sc[b]-sc[a]);
+  const candPool = ranked.slice(0, Math.min(pool.length, count + 6));
+  const picked = [];
+  const used = new Set();
+  while (picked.length < count){
+    const v = weightedPick(candPool.filter(x => !used.has(x)), sc);
+    used.add(v); picked.push(v);
+  }
+  return picked.map(v => ({v, freq: st.freq[v], since: st.since[v]}));
+}
+
+function makePick(){
+  const g = GAMES[game], draws = DATA[game];
+  const wDraws = windowDraws(draws);
+  const story = {hottest:null, sleepiest:null};
+  let mainPicks = [], bonusPick = null;
+  const note = (p) => {
+    if (!story.hottest || p.freq > story.hottest.freq) story.hottest = p;
+    if (!story.sleepiest || p.since > story.sleepiest.since) story.sleepiest = p;
+  };
+  if (g.kind === "digits"){
+    for (let pos = 0; pos < g.positions; pos++){
+      const pool = [0,1,2,3,4,5,6,7,8,9];
+      const st = statsFor(wDraws.map(d => [d.numbers[pos]]), pool);
+      const stAll = statsFor(draws.map(d => [d.numbers[pos]]), pool);
+      pool.forEach(v => st.since[v] = stAll.since[v]); // overdue measured on full history
+      const [p] = choose(pool, st, 1);
+      mainPicks.push(p); note(p);
+    }
+  } else {
+    const pool = Array.from({length: g.mainMax}, (_,i) => i+1);
+    const st = statsFor(wDraws.map(d => d.numbers), pool);
+    const stAll = statsFor(draws.map(d => d.numbers), pool);
+    pool.forEach(v => st.since[v] = stAll.since[v]);
+    mainPicks = choose(pool, st, g.main).sort((a,b) => a.v-b.v);
+    mainPicks.forEach(note);
+    if (g.bonusMax){
+    const bPool = Array.from({length: g.bonusMax}, (_,i) => i+1);
+    const bst = statsFor(wDraws.map(d => [d.bonus]), bPool);
+    const bstAll = statsFor(draws.map(d => [d.bonus]), bPool);
+    bPool.forEach(v => bst.since[v] = bstAll.since[v]);
+    [bonusPick] = choose(bPool, bst, 1);
+    }
+  }
+  return {mainPicks, bonusPick, story, drawsUsed: wDraws.length};
+}
+
+let lastFortune = -1;
+function fortuneFor(){
+  let i = Math.floor(Math.random()*FORTUNES.length);
+  if (i === lastFortune) i = (i + 1) % FORTUNES.length;
+  lastFortune = i;
+  return FORTUNES[i];
+}
+function luckyLine(pick){
+  const g = GAMES[game];
+  const nums = pick.mainPicks.map(p => p.v).join(" – ");
+  let s = nums;
+  if (pick.bonusPick) s += `  +  ${g.bonusName} ${pick.bonusPick.v}`;
+  return s;
+}
+
+/* ---------- ui ---------- */
+function fmtDate(iso){
+  const d = new Date(iso + "T12:00:00");
+  return d.toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"});
+}
+function renderLatest(){
+  const draws = DATA[game], g = GAMES[game], last = draws[draws.length-1];
+  let nums = last.numbers.join(" – ");
+  if (g.kind === "balls" && last.bonus != null && g.bonusName) nums += `  +  ${last.bonus} (${g.bonusName})`;
+  $("latestLine").innerHTML = `Latest draw · ${fmtDate(last.date)}: <b>${nums}</b> · ${draws.length} draws in the cookie's memory`;
+}
+function buildPills(){
+  $("gamePills").innerHTML = Object.entries(GAMES).map(([k,g]) =>
+    `<button class="pill ${k===game?'on':''}" data-game="${k}">${g.name}</button>`).join("");
+  document.querySelectorAll("#gamePills .pill").forEach(b =>
+    b.onclick = () => { game = b.dataset.game; buildPills(); renderLatest(); renderCutoff(); resetCookie(); });
+}
+const MODE_NOTES = {
+  blend: "✨ <b>Destiny Blend</b> — the balanced pick. The cookie mixes numbers that have been hitting often with numbers that are long overdue, so your slip gets a little of both.",
+  hot: "🔥 <b>Hot Streak</b> — ride the hot hand. The cookie favors the numbers that have come up most often lately, on the theory that hot numbers stay hot.",
+  overdue: "🌙 <b>Long Sleep</b> — wake the sleepers. The cookie favors the numbers that haven't been drawn in the longest time, on the theory that they're due."
+};
+function updateModeNote(){
+  const span = mode === "overdue"
+    ? " How long each number has slept is counted across the full history on record."
+    : " Judged from " + (win === 0 ? "the game's full draw history on record" : "the last " + win + " draws") + ".";
+  $("modeNote").innerHTML = MODE_NOTES[mode] + span;
+}
+$("modeSeg").querySelectorAll(".pill").forEach(b => b.onclick = () => {
+  mode = b.dataset.mode;
+  $("modeSeg").querySelectorAll(".pill").forEach(x => x.classList.toggle("on", x===b));
+  updateModeNote();
+  resetCookie();
+});
+$("winSeg").querySelectorAll(".pill").forEach(b => b.onclick = () => {
+  win = parseInt(b.dataset.win, 10);
+  $("winSeg").querySelectorAll(".pill").forEach(x => x.classList.toggle("on", x===b));
+  updateModeNote();
+  resetCookie();
+});
+updateModeNote();
+
+let currentPick = null;
+function resetCookie(){
+  $("cookieZone").classList.remove("cracked");
+  $("tapHint").textContent = "Tap the cookie to crack your fortune";
+  currentPick = null;
+}
+function crack(){
+  if (currentPick) return;
+  currentPick = makePick();
+  const g = GAMES[game];
+  $("slipGame").textContent = g.name + (mode==="blend" ? " · Destiny Blend" : mode==="hot" ? " · Hot Streak" : " · Long Sleep");
+  let html = currentPick.mainPicks.map(p =>
+    `<div class="ball ${g.kind==='digits'?'digit':''}">${p.v}</div>`).join("");
+  if (currentPick.bonusPick)
+    html += `<span class="plus">+</span><div class="ball bonus">${currentPick.bonusPick.v}</div>`;
+  $("slipBalls").innerHTML = html;
+  $("slipBonusName").textContent = currentPick.bonusPick ? g.bonusName : "";
+  $("slipFortune").textContent = fortuneFor();
+  $("slipLucky").innerHTML = `<b>Lucky Numbers</b><br>${luckyLine(currentPick)}`;
+  const s = currentPick.story;
+  $("slipChips").innerHTML =
+    `<span class="chip">🌙 Longest sleeper: ${s.sleepiest.v} · ${s.sleepiest.since} draws</span>` +
+    `<span class="chip">🔥 Hottest: ${s.hottest.v} · ${s.hottest.freq} hits</span>` +
+    `<span class="chip">📜 Read from ${currentPick.drawsUsed} draws</span>`;
+  // sparkles
+  const zone = $("cookieZone");
+  zone.querySelectorAll(".spark").forEach(e => e.remove());
+  for (let i = 0; i < 7; i++){
+    const sp = document.createElement("span");
+    sp.className = "spark"; sp.textContent = "✦";
+    sp.style.left = (18 + Math.random()*64) + "%";
+    sp.style.top = (12 + Math.random()*40) + "%";
+    sp.style.animationDelay = (Math.random()*0.35) + "s";
+    zone.appendChild(sp);
+  }
+  zone.classList.add("cracked");
+  $("tapHint").textContent = "The cookie has spoken.";
+}
+$("cookieZone").addEventListener("click", crack);
+$("againBtn").onclick = () => { resetCookie(); setTimeout(crack, 60); };
+
+/* ---------- cookie jar ---------- */
+function loadJar(){ try { return JSON.parse(localStorage.getItem("crackpotJar") || "[]"); } catch(e){ return []; } }
+function saveJar(j){ localStorage.setItem("crackpotJar", JSON.stringify(j)); }
+/* ---------- win checking ---------- */
+const TIER_RANK = {mini:1, win:2, big:3, jackpot:4};
+
+/* Normalize any jar entry (new structured or legacy display-only) to
+   {game, main[], bonus|null, savedDate} — or null if it can't be read. */
+function normalizeSlip(s){
+  if (s.game && Array.isArray(s.main) && s.main.length && GAMES[s.game]){
+    const sd = s.savedISO ? new Date(s.savedISO) : null;
+    return { game: s.game, main: s.main.slice(),
+      bonus: (s.bonus != null ? s.bonus : null),
+      savedDate: (sd && !isNaN(sd)) ? sd : new Date(0) };
+  }
+  const kv = Object.entries(GAMES).find(([,g]) => g.name === s.gameName);
+  if (!kv || !s.label) return null;
+  const [key, g] = kv;
+  const parts = String(s.label).split("+");
+  const main = parts[0].split(/[–—-]/).map(x => parseInt(x.trim(), 10)).filter(v => !isNaN(v));
+  const need = g.kind === "digits" ? g.positions : g.main;
+  if (main.length !== need) return null;
+  let bonus = null;
+  if (parts.length > 1 && g.bonusName){
+    const m = parts.slice(1).join("+").replace(g.bonusName, "").match(/\d+/);
+    if (m) bonus = parseInt(m[0], 10);
+  }
+  let savedDate = null;
+  if (s.when){
+    const yr = new Date().getFullYear();
+    const d = new Date(s.when + ", " + yr);
+    if (!isNaN(d)){
+      if (d.getTime() > Date.now() + 864e5) d.setFullYear(yr - 1);
+      savedDate = d;
+    }
+  }
+  if (!savedDate) return null;
+  return { game: key, main, bonus, savedDate };
+}
+
+/* A draw's local date-time: same-day draws (Pick midday/evening) take the
+   game's scheduled draw times for that weekday, in array order. */
+function drawDateTime(gameKey, draw, sameDayIndex){
+  const g = GAMES[gameKey];
+  const dow = new Date(draw.date + "T12:00:00").getDay();
+  const times = (g.sched || []).filter(s => s.days.includes(dow)).map(s => s.draw).sort();
+  const t = times.length ? times[Math.min(sameDayIndex, times.length - 1)] : "23:59";
+  const [h, m] = t.split(":").map(Number);
+  const d = new Date(draw.date + "T00:00:00");
+  d.setHours(h, m, 0, 0);
+  return d;
+}
+/* Eligible draws: strictly after the saved date, plus same-date draws whose
+   scheduled draw time is after the moment the slip was saved. */
+function eligibleDraws(gameKey, savedDate){
+  const draws = DATA[gameKey] || [];
+  const seen = {}, out = [];
+  draws.forEach(d => {
+    const idx = seen[d.date] || 0; seen[d.date] = idx + 1;
+    if (drawDateTime(gameKey, d, idx) > savedDate) out.push(d);
+  });
+  return out;
+}
+function tierForBalls(gameKey, m, b){
+  if (gameKey === "rollingcash5") return m===5 ? "jackpot" : m===4 ? "big" : m===3 ? "win" : m===2 ? "mini" : null;
+  if (gameKey === "classiclotto") return m===6 ? "jackpot" : m===5 ? "big" : m===4 ? "win" : m===3 ? "mini" : null;
+  if (m === 5) return b ? "jackpot" : "big";
+  if (m === 4) return b ? "big" : "win";
+  if (m === 3) return b ? "win" : "mini";
+  if (m === 2 || m === 1 || m === 0) return b ? "mini" : null;
+  return null;
+}
+function scoreDraw(slip, d){
+  const g = GAMES[slip.game];
+  if (g.kind === "digits"){
+    if (slip.main.length === d.numbers.length && slip.main.every((v, i) => v === d.numbers[i]))
+      return { tier:"jackpot", matchKind:"straight", mainMatches: slip.main.length, bonusMatch: false };
+    const a = [...slip.main].sort((x, y) => x - y), b = [...d.numbers].sort((x, y) => x - y);
+    if (a.length === b.length && a.every((v, i) => v === b[i]))
+      return { tier:"win", matchKind:"box", mainMatches: slip.main.length, bonusMatch: false };
+    return null;
+  }
+  const set = new Set(d.numbers);
+  const mainMatches = slip.main.filter(v => set.has(v)).length;
+  const bonusMatch = slip.bonus != null && d.bonus != null && slip.bonus === d.bonus;
+  const tier = tierForBalls(slip.game, mainMatches, bonusMatch);
+  if (!tier) return null;
+  return { tier, matchKind:"balls", mainMatches, bonusMatch };
+}
+function checkSlip(slip){
+  if (!slip || !GAMES[slip.game]) return null;
+  let best = null;
+  for (const d of eligibleDraws(slip.game, slip.savedDate)){
+    const r = scoreDraw(slip, d);
+    if (!r) continue;
+    if (!best || TIER_RANK[r.tier] > TIER_RANK[best.tier])
+      best = { ...r, drawDate: d.date, drawNumbers: d.numbers.slice(), drawBonus: (d.bonus != null ? d.bonus : null) };
+  }
+  return best;
+}
+function describeMatch(w){
+  const g = GAMES[w.game];
+  if (!g) return "a winning match";
+  if (g.kind === "digits")
+    return w.matchKind === "straight"
+      ? `straight hit — all ${w.drawNumbers.length} digits in exact order`
+      : `matched all ${w.drawNumbers.length} digits (box)`;
+  let txt = "";
+  if (w.mainMatches > 0) txt = `matched ${w.mainMatches} of ${g.main}`;
+  if (w.bonusMatch) txt = txt ? `${txt} + the ${g.bonusName}` : `matched the ${g.bonusName}`;
+  return txt || "a winning match";
+}
+function fmtDay(iso){
+  return new Date(iso + "T12:00:00").toLocaleDateString("en-US", {weekday:"short", month:"short", day:"numeric"});
+}
+/* Recompute an entry's win against current draw data; cache on the entry. */
+function refreshWinInfo(s){
+  const slip = normalizeSlip(s);
+  const res = slip ? checkSlip(slip) : null;
+  const key = res ? [res.tier, res.drawDate, res.drawNumbers.join(","), res.drawBonus == null ? "" : res.drawBonus].join("|") : null;
+  const curKey = s.winInfo ? s.winInfo.key : null;
+  if (key === curKey) return false;
+  if (res) s.winInfo = { ...res, key, game: slip.game, slipMain: slip.main, slipBonus: slip.bonus, celebrated: false };
+  else delete s.winInfo;
+  return true;
+}
+
+function renderJar(){
+  const jar = loadJar();
+  let dirty = false;
+  jar.forEach(s => { if (refreshWinInfo(s)) dirty = true; });
+  if (dirty) saveJar(jar);
+  if (!jar.length){ $("jarList").innerHTML = `<p class="empty">No slips saved yet. Crack a cookie, then keep the ones that feel lucky.</p>`; return; }
+  $("jarList").innerHTML = jar.map((s, i) => {
+    const w = s.winInfo;
+    return `
+    <div class="jar-item${w ? " winner" : ""}">
+      <div class="jar-top"><span class="jar-game">${s.gameName}</span><span class="jar-date">${s.when}</span></div>
+      <div class="jar-fortune">“${s.fortune}”</div>
+      <div class="jar-nums">Lucky Numbers: ${s.label}</div>
+      ${w ? `<div class="jar-badge">🏆 WINNER — ${describeMatch(w)} · ${fmtDay(w.drawDate)}</div>` : ""}
+      ${w ? `<button class="jar-replay" data-i="${i}">🎉 Replay celebration</button>` : ""}
+      <button class="jar-del" data-i="${i}">remove</button>
+    </div>`;
+  }).join("");
+  document.querySelectorAll(".jar-del").forEach(b => b.onclick = () => {
+    const jar = loadJar(); jar.splice(parseInt(b.dataset.i, 10), 1); saveJar(jar); renderJar();
+  });
+  document.querySelectorAll(".jar-replay").forEach(b => b.onclick = () => {
+    const jar = loadJar(); const i = parseInt(b.dataset.i, 10);
+    if (jar[i] && jar[i].winInfo) showCelebration(jar[i], i);
+  });
+}
+$("checkWinsBtn").onclick = () => {
+  renderJar();
+  const jar = loadJar();
+  const wins = [], fresh = [];
+  jar.forEach((s, i) => { if (s.winInfo){ wins.push(i); if (!s.winInfo.celebrated) fresh.push(i); } });
+  if (fresh.length){
+    let bi = fresh[0];
+    fresh.forEach(i => { if (TIER_RANK[jar[i].winInfo.tier] > TIER_RANK[jar[bi].winInfo.tier]) bi = i; });
+    $("jarStatus").textContent = "";
+    showCelebration(jar[bi], bi);
+  } else if (wins.length){
+    $("jarStatus").textContent = "Already celebrated those wins — tap “Replay celebration” on a slip to see it again. 🏆";
+  } else {
+    $("jarStatus").textContent = "No wins yet — your next draw could be the one. 🍀";
+  }
+};
+
+/* ---------- win celebration ---------- */
+let celebTier = "win", winAnim = null, fanfareCtx = null, fanfareScheduled = false;
+function playFanfare(tier){
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    if (!fanfareCtx) fanfareCtx = new AC();
+    if (fanfareCtx.state === "suspended") fanfareCtx.resume();
+    if (fanfareScheduled) return;
+    fanfareScheduled = true;
+    const base = [523.25, 659.25, 783.99, 1046.5];
+    const seqs = { mini:[0,1,2], win:[0,1,2,3], big:[0,1,2,3,2,3], jackpot:[0,1,2,3,0,1,2,3,3,3] };
+    const seq = seqs[tier] || seqs.win;
+    const t0 = fanfareCtx.currentTime + 0.03;
+    seq.forEach((n, i) => {
+      const t = t0 + i * 0.13;
+      const o = fanfareCtx.createOscillator(), gn = fanfareCtx.createGain();
+      o.type = "triangle"; o.frequency.value = base[n];
+      gn.gain.setValueAtTime(0.0001, t);
+      gn.gain.exponentialRampToValueAtTime(0.22, t + 0.02);
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
+      o.connect(gn); gn.connect(fanfareCtx.destination);
+      o.start(t); o.stop(t + 0.4);
+      const o2 = fanfareCtx.createOscillator(), g2 = fanfareCtx.createGain();
+      o2.type = "sine"; o2.frequency.value = base[n] * 2;
+      g2.gain.setValueAtTime(0.0001, t);
+      g2.gain.exponentialRampToValueAtTime(0.07, t + 0.02);
+      g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+      o2.connect(g2); g2.connect(fanfareCtx.destination);
+      o2.start(t); o2.stop(t + 0.3);
+    });
+    const end = t0 + seq.length * 0.13;
+    [0, 1, 2, 3].forEach(n => {
+      const o = fanfareCtx.createOscillator(), gn = fanfareCtx.createGain();
+      o.type = "triangle"; o.frequency.value = base[n];
+      gn.gain.setValueAtTime(0.0001, end);
+      gn.gain.exponentialRampToValueAtTime(0.1, end + 0.03);
+      gn.gain.exponentialRampToValueAtTime(0.0001, end + 0.55);
+      o.connect(gn); gn.connect(fanfareCtx.destination);
+      o.start(end); o.stop(end + 0.6);
+    });
+    setTimeout(() => { fanfareScheduled = false; }, (seq.length * 0.13 + 1) * 1000);
+  } catch(e){}
+}
+function startWinFX(tier){
+  const cv = $("winCanvas"); if (!cv || !cv.getContext) return;
+  const ctx = cv.getContext("2d");
+  cv.width = window.innerWidth || 360; cv.height = window.innerHeight || 640;
+  const conf = { mini:{dur:2600, rate:3, coins:0.15}, win:{dur:3800, rate:5, coins:0.3},
+                 big:{dur:5200, rate:8, coins:0.55}, jackpot:{dur:6800, rate:11, coins:0.8} }[tier]
+               || {dur:3800, rate:5, coins:0.3};
+  const colors = ["#f2c14e", "#e4572e", "#f7ead1", "#ffe9a8", "#c9932b", "#ffffff"];
+  const parts = [], start = performance.now();
+  function spawn(){
+    const coin = Math.random() < conf.coins;
+    parts.push({ x: Math.random() * cv.width, y: -24 - Math.random() * 40,
+      vx: (Math.random() - 0.5) * 1.6, vy: 2 + Math.random() * 3,
+      s: coin ? 9 + Math.random() * 8 : 5 + Math.random() * 6,
+      r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.25,
+      coin, color: colors[(Math.random() * colors.length) | 0], flip: Math.random() * Math.PI });
+  }
+  function frame(now){
+    const el = now - start;
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    if (el < conf.dur) for (let i = 0; i < conf.rate; i++) if (Math.random() < 0.9) spawn();
+    for (let i = parts.length - 1; i >= 0; i--){
+      const p = parts[i];
+      p.x += p.vx + Math.sin(now / 300 + p.r) * 0.6;
+      p.y += p.vy; p.r += p.vr; p.flip += 0.08;
+      if (p.y > cv.height + 30){ parts.splice(i, 1); continue; }
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r);
+      if (p.coin){
+        const w = Math.abs(Math.cos(p.flip));
+        ctx.beginPath(); ctx.ellipse(0, 0, p.s * w + 1, p.s, 0, 0, Math.PI * 2);
+        ctx.fillStyle = "#f2c14e"; ctx.fill();
+        ctx.strokeStyle = "#c9932b"; ctx.lineWidth = 2; ctx.stroke();
+        if (w > 0.35){
+          ctx.fillStyle = "#c9932b";
+          ctx.font = "bold " + Math.round(p.s) + "px Georgia, serif";
+          ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillText("★", 0, 1);
+        }
+      } else {
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2);
+      }
+      ctx.restore();
+    }
+    if (el < conf.dur + 1800 || parts.length) winAnim = requestAnimationFrame(frame);
+    else { ctx.clearRect(0, 0, cv.width, cv.height); winAnim = null; }
+  }
+  if (winAnim) cancelAnimationFrame(winAnim);
+  winAnim = requestAnimationFrame(frame);
+}
+function stopWinFX(){
+  if (winAnim) cancelAnimationFrame(winAnim);
+  winAnim = null;
+  const cv = $("winCanvas");
+  if (cv && cv.getContext) cv.getContext("2d").clearRect(0, 0, cv.width, cv.height);
+}
+function showCelebration(s, jarIndex){
+  const w = s.winInfo; if (!w) return;
+  const g = GAMES[w.game]; if (!g) return;
+  celebTier = w.tier;
+  $("winHeadline").textContent = { mini:"WINNER!", win:"YOU WON!", big:"BIG WIN!", jackpot:"★ JACKPOT ★" }[w.tier] || "YOU WON!";
+  $("winGame").textContent = g.name;
+  const desc = describeMatch(w);
+  $("winDetail").textContent = desc.charAt(0).toUpperCase() + desc.slice(1) + "!";
+  const slipSet = new Set(w.slipMain || []);
+  let html = w.drawNumbers.map((n, idx) => {
+    const hit = g.kind === "digits" ? true : slipSet.has(n);
+    return `<div class="ball ${g.kind === "digits" ? "digit" : ""}${hit ? " hit" : ""}" style="animation-delay:${(idx * 0.12).toFixed(2)}s">${n}</div>`;
+  }).join("");
+  if (g.bonusName && w.drawBonus != null)
+    html += `<span class="plus">+</span><div class="ball bonus${w.bonusMatch ? " hit" : ""}" style="animation-delay:.65s">${w.drawBonus}</div>`;
+  $("winBalls").innerHTML = html;
+  $("winDate").textContent = "Winning draw · " + fmtDate(w.drawDate);
+  const ov = $("winOverlay");
+  ov.hidden = false;
+  ov.classList.toggle("jflash", w.tier === "jackpot");
+  startWinFX(w.tier);
+  playFanfare(w.tier);
+  if ((w.tier === "big" || w.tier === "jackpot") && navigator.vibrate){
+    try { navigator.vibrate([90, 60, 90, 60, 220]); } catch(e){}
+  }
+  if (typeof jarIndex === "number"){
+    const jar = loadJar();
+    if (jar[jarIndex] && jar[jarIndex].winInfo){
+      jar[jarIndex].winInfo.celebrated = true;
+      saveJar(jar); renderJar();
+    }
+  }
+}
+$("winCollectBtn").onclick = () => {
+  try {
+    if (fanfareCtx && fanfareCtx.state === "suspended") fanfareCtx.resume();
+    else if (!fanfareScheduled) playFanfare(celebTier);
+  } catch(e){}
+  stopWinFX();
+  const ov = $("winOverlay");
+  ov.hidden = true;
+  ov.classList.remove("jflash");
+};
+$("keepBtn").onclick = () => {
+  if (!currentPick){ crack(); if (!currentPick) return; }
+  const g = GAMES[game];
+  const label = luckyLine(currentPick);
+  const jar = loadJar();
+  jar.unshift({ gameName: g.name, label,
+    game, main: currentPick.mainPicks.map(p => p.v),
+    bonus: currentPick.bonusPick ? currentPick.bonusPick.v : null,
+    savedISO: new Date().toISOString(),
+    fortune: $("slipFortune").textContent,
+    when: new Date().toLocaleDateString("en-US", {month:"short", day:"numeric"}) + ", " +
+          new Date().toLocaleTimeString("en-US", {hour:"numeric", minute:"2-digit"}) });
+  saveJar(jar); renderJar();
+  $("keepBtn").textContent = "Kept! ✓";
+  setTimeout(() => $("keepBtn").textContent = "Keep this slip", 1200);
+};
+
+function fmtClock(dt){
+  let h = dt.getHours(), m = dt.getMinutes();
+  const ap = h >= 12 ? "PM" : "AM"; h = h % 12 || 12;
+  return h + ":" + String(m).padStart(2,"0") + " " + ap;
+}
+function fmtLeft(ms){
+  const mins = Math.max(0, Math.round(ms/60000));
+  const d = Math.floor(mins/1440), h = Math.floor(mins%1440/60), m = mins%60;
+  if (d) return d + "d " + h + "h";
+  if (h) return h + "h " + String(m).padStart(2,"0") + "m";
+  if (m) return m + "m";
+  return "under a minute";
+}
+function dayWord(dt, now){
+  const same = dt.toDateString() === now.toDateString();
+  if (same) return "today";
+  const tm = new Date(now); tm.setDate(tm.getDate()+1);
+  if (dt.toDateString() === tm.toDateString()) return "tomorrow";
+  return dt.toLocaleDateString("en-US", {weekday:"short"});
+}
+function renderCutoff(){
+  const g = GAMES[game], el = $("cutoffLine");
+  if (!g.sched){ el.textContent = ""; return; }
+  const now = new Date();
+  const inst = [];
+  for (let off = 0; off < 9; off++){
+    const d = new Date(now); d.setDate(d.getDate()+off);
+    g.sched.forEach(s => {
+      if (!s.days.includes(d.getDay())) return;
+      const [dh, dm] = s.draw.split(":").map(Number);
+      const draw = new Date(d); draw.setHours(dh, dm, 0, 0);
+      const cut = (d.getDay() === 6 && s.satCutoff) ? s.satCutoff : s.cutoff;
+      const [ch, cm] = cut.split(":").map(Number);
+      const cutoff = new Date(d); cutoff.setHours(ch, cm, 0, 0);
+      inst.push({draw, cutoff, label: s.label || ""});
+    });
+  }
+  inst.sort((a,b) => a.draw - b.draw);
+  const nxt = inst.find(i => i.draw > now);
+  if (!nxt){ el.textContent = ""; return; }
+  const pre = nxt.label ? nxt.label + " draw " : "Draw ";
+  if (now < nxt.cutoff){
+    el.innerHTML = "🎟️ " + pre + "<b>" + dayWord(nxt.draw, now) + " " + fmtClock(nxt.draw) + "</b> · Ohio tickets until <b>" +
+      fmtClock(nxt.cutoff) + "</b> — <b>" + fmtLeft(nxt.cutoff - now) + " left</b>";
+  } else {
+    const after = inst.find(i => i.draw > nxt.draw);
+    let tail = "";
+    if (after) tail = " · next: " + (after.label ? after.label + " " : "") + dayWord(after.draw, now) + " " +
+      fmtClock(after.draw) + ", tickets until " + fmtClock(after.cutoff);
+    el.innerHTML = "🔒 Sales closed for the " + dayWord(nxt.draw, now) + " " + fmtClock(nxt.draw) + " draw" + tail;
+  }
+}
+setInterval(renderCutoff, 30000);
+
+buildPills(); renderLatest(); renderCutoff(); renderJar();
+
+/* On load: if a saved slip has a win that hasn't been celebrated yet,
+   throw the party for the single best one. */
+setTimeout(() => {
+  const jar = loadJar();
+  let bi = -1;
+  jar.forEach((s, i) => {
+    if (!s.winInfo || s.winInfo.celebrated) return;
+    if (bi < 0 || TIER_RANK[s.winInfo.tier] > TIER_RANK[jar[bi].winInfo.tier] ||
+        (TIER_RANK[s.winInfo.tier] === TIER_RANK[jar[bi].winInfo.tier] && s.winInfo.drawDate < jar[bi].winInfo.drawDate))
+      bi = i;
+  });
+  if (bi >= 0) showCelebration(jar[bi], bi);
+}, 500);
+</script>
+</body>
+</html>
