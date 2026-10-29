@@ -1,0 +1,92 @@
+name: Draw refresh
+
+# Automated draw refresh for Crackpot Fortune. Fetches new Ohio Lottery
+# draws, rebuilds the page, commits, and deploys to GitHub Pages — no
+# agent run and no approval card needed. Schedule pairs cover both EDT
+# (UTC-4) and EST (UTC-5) so a run always lands shortly after each draw
+# set, year-round. The fetch is idempotent: a run with no new draws
+# commits and deploys nothing.
+#
+# Images (art.jpg, cookie) are stored as base64 text files (*.b64) because
+# the snapshot-push route handles text only; build.py reads the binary
+# file when present and falls back to the .b64 text otherwise.
+on:
+  schedule:
+    - cron: '43 17 * * *' # 13:43 EDT / 12:43 EST, after midday Pick draws
+    - cron: '43 18 * * *' # 14:43 EDT / 13:43 EST
+    - cron: '43 0 * * *'  # 20:43 EDT / 19:43 EST, after evening draws
+    - cron: '43 1 * * *'  # 21:43 EDT / 20:43 EST
+    - cron: '43 5 * * *'  # 01:43 EDT / 00:43 EST, after late draws
+    - cron: '43 6 * * *'  # 02:43 EDT / 01:43 EST
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: draw-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Fetch new draws
+        run: python3 fetch_draws.py
+
+      - name: Rebuild page
+        run: python3 build.py
+
+      - name: Commit if changed
+        id: commit
+        run: |
+          git config user.name "crackpot-refresh"
+          git config user.email "crackpot-refresh@users.noreply.github.com"
+          git add data/draws.json www/index.html
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            THROUGH=$(python3 -c "import json; print(max(d['date'] for draws in json.load(open('data/draws.json')).values() for d in draws))")
+            git commit -m "Draw refresh — data through $THROUGH"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    # Pages deploy lives here because pushes made with GITHUB_TOKEN do not
+    # retrigger the push-based pages workflow. The pages workflow still
+    # handles deploys for direct (human/agent) pushes.
+    needs: refresh
+    if: needs.refresh.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      - name: Upload www folder
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: www
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
