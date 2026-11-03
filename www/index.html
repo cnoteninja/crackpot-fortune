@@ -108,21 +108,6 @@
   .jar-check{width:100%; background:#f2c14e1a; border:1px solid var(--gold); color:var(--gold); border-radius:12px; padding:11px; font-size:.95rem; font-weight:700; cursor:pointer; margin-bottom:4px}
   .jar-check:active{transform:scale(.99)}
   .jar-status{font-size:.88rem; color:var(--gold); min-height:1.2em; margin:4px 2px 8px; text-align:center}
-  .crowd-row{display:flex; align-items:center; gap:8px; margin-top:12px}
-  .crowd-note{font-size:.85rem; line-height:1.45; opacity:.85; margin:8px 2px 0}
-  .fair-note{font-size:.82rem; line-height:1.45; opacity:.8; text-align:center; margin:12px 4px 0}
-  .jackpot{font-size:.92rem; margin-top:10px; color:var(--gold); line-height:1.5}
-  .fresh-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:12px; flex-wrap:wrap}
-  .fresh-row #freshLine{font-size:.85rem; opacity:.9}
-  .fresh-note{font-size:.78rem; opacity:.7; margin:6px 2px 0; line-height:1.45}
-  .pill:disabled{opacity:.45; cursor:default}
-  details.stats summary{cursor:pointer; font-size:.92rem; font-weight:700; color:var(--gold); padding:4px 0}
-  .stats-sub{font-size:.85rem; opacity:.85; margin:8px 0 0; line-height:1.45}
-  .stats-table{width:100%; border-collapse:collapse; font-size:.82rem; margin-top:10px}
-  .stats-table th,.stats-table td{padding:4px 6px; text-align:right; border-bottom:1px solid #ffffff14}
-  .stats-table th:first-child,.stats-table td:first-child{text-align:left}
-  .stats-table th{color:var(--gold); font-size:.72rem; text-transform:uppercase; letter-spacing:.08em}
-  .stats-table td.hot{color:var(--gold); font-weight:700}
   .empty{opacity:.65; font-size:.9rem; text-align:center; padding:8px 0 2px}
   /* win celebration overlay */
   .win-overlay{position:fixed; inset:0; z-index:60; background:rgba(10,7,28,.94); display:flex; align-items:center; justify-content:center; overflow:hidden}
@@ -175,12 +160,6 @@
     <div class="pills" id="gamePills"></div>
     <p class="latest" id="latestLine"></p>
     <p class="cutoff" id="cutoffLine"></p>
-    <p class="jackpot" id="jackpotLine" hidden></p>
-    <div class="fresh-row">
-      <span id="freshLine">📅 Draws through … · from the last build</span>
-      <button class="pill" id="refreshBtn">↻ Refresh draws</button>
-    </div>
-    <p class="fresh-note">Live check covers Mega Millions, Powerball &amp; Millionaire for Life (New York open data). Ohio games — Pick 3/4/5, Rolling Cash 5 &amp; Classic Lotto — update with each site rebuild.</p>
   </section>
 
   <section class="card">
@@ -193,14 +172,10 @@
     <p class="mode-note" id="modeNote"></p>
     <p class="lbl" style="margin-top:14px">Reading the last…</p>
     <div class="seg" id="winSeg">
-      <button class="pill" data-win="30">≈2 weeks</button>
-      <button class="pill on" data-win="100">≈2 months</button>
+      <button class="pill" data-win="30">30 draws</button>
+      <button class="pill on" data-win="100">100 draws</button>
       <button class="pill" data-win="0">All draws</button>
     </div>
-    <div class="crowd-row">
-      <button class="pill on" id="crowdToggle" aria-pressed="true">🙈 Avoid the crowd</button>
-    </div>
-    <p class="crowd-note">Steers picks away from the numbers everybody plays — birthdays (1–31), neat sequences, and repeats. It won't make you more likely to win, but if you do win, you'll share the jackpot with fewer people.</p>
   </section>
 
   <section class="card stage" id="stageCard">
@@ -221,14 +196,6 @@
       <button class="act again" id="againBtn">🥠 Crack another</button>
       <button class="act keep" id="keepBtn">Keep this slip</button>
     </div>
-    <p class="fair-note">Every draw is independent — hot, cold, and overdue are stories about the past, not predictions. These picks are for fun.</p>
-  </section>
-
-  <section class="card">
-    <details class="stats" id="statsDetails">
-      <summary>📊 The numbers behind this game — observed vs expected</summary>
-      <div id="statsBody"></div>
-    </details>
   </section>
 
   <section class="card">
@@ -238,7 +205,7 @@
     <div id="jarList"></div>
   </section>
 
-  <footer id="pageFooter">
+  <footer>
     Draw history through <b>Nov 3, 2026</b> — Ohio Pick 3/4/5, Rolling Cash 5 &amp; Classic Lotto via LotteryUSA's results archive; Mega Millions, Powerball &amp; Millionaire for Life via New York Lottery open data.<br>
     The honest print: every draw is independent and no cookie, however charming, can predict one. Crackpot Fortune reads patterns for the joy of it. Play for fun, never with money you need.
   </footer>
@@ -313,7 +280,7 @@ const FORTUNES = [
   "Share a lucky moment and it doubles. Hoard it and it fades.",
   "The cookie has spoken. The rest is up to you."
 ];
-let game = "pick3", mode = "blend", win = 100, avoidCrowd = true;
+let game = "pick3", mode = "blend", win = 100;
 const $ = id => document.getElementById(id);
 
 /* ---------- moon phase (a little mythic garnish) ---------- */
@@ -327,85 +294,39 @@ const $ = id => document.getElementById(id);
 })();
 
 /* ---------- engine ---------- */
-/* Crypto-grade randomness for the pick paths (Math.random fallback). */
-function randFloat(){
-  try {
-    if (window.crypto && crypto.getRandomValues){
-      const a = new Uint32Array(1);
-      crypto.getRandomValues(a);
-      return a[0] / 4294967296;
-    }
-  } catch(e){}
-  return Math.random();
-}
+function windowDraws(draws){ return win === 0 ? draws : draws.slice(-win); }
 
-/* Draws per day for a game, from its schedule — used to size windows by
-   time span instead of raw draw count. */
-function drawsPerDay(key){
-  const g = GAMES[key];
-  if (!g.sched) return 1;
-  return g.sched.reduce((n, s) => n + s.days.length, 0) / 7;
-}
-/* Effective window for a game: the selected span (30/100 draws at the
-   2-draws-a-day Pick pace) scaled to this game's draw frequency, so
-   every game reads about the same stretch of time. 0 = all draws. */
-function effWin(key){
-  if (win === 0) return 0;
-  return Math.max(10, Math.round(win * drawsPerDay(key) / 2));
-}
-function windowDraws(draws, key){ const n = effWin(key); return n === 0 ? draws : draws.slice(-n); }
-
-/* Expected gap (in draws) between appearances of one value in a pool. */
-function expectedGap(kind, g){
-  if (kind === "digits") return 10;              // 1-in-10 per position
-  if (kind === "bonus") return g.bonusMax;       // 1-in-bonusMax per draw
-  return g.mainMax / g.main;                     // mainMax/main draws per hit
-}
-
-function statsFor(drawSets, pool, halfLife){
+function statsFor(drawSets, pool){
   // drawSets: chronological list of draws; each draw is an array of values from this pool.
-  // freq counts appearances (raw); wfreq is the same count with recent
-  // draws weighted more (exponential decay, half-life in draws);
-  // since counts whole draws since the value last appeared.
-  const freq = {}, wfreq = {}, since = {};
-  const n = drawSets.length, hl = halfLife || Math.max(5, Math.floor(n / 4));
-  pool.forEach(v => { freq[v] = 0; wfreq[v] = 0; since[v] = drawSets.length; });
-  drawSets.forEach((set, i) => {
-    const w = Math.pow(0.5, (n - 1 - i) / hl);
-    set.forEach(v => { freq[v]++; wfreq[v] += w; });
-  });
+  // freq counts appearances; since counts whole draws since the value last appeared.
+  const freq = {}, since = {};
+  pool.forEach(v => { freq[v] = 0; since[v] = drawSets.length; });
+  drawSets.forEach(set => set.forEach(v => { freq[v]++; }));
   pool.forEach(v => {
     for (let i = drawSets.length - 1; i >= 0; i--){
       if (drawSets[i].includes(v)){ since[v] = drawSets.length - 1 - i; break; }
     }
   });
-  return {freq, wfreq, since};
+  return {freq, since};
 }
-/* Popularity penalty: lotto main numbers 1–31 are the birthday numbers
-   everybody plays. Digits and bonus pools get no per-number penalty. */
-function crowdFactor(v, kind){ return (kind === "main" && v <= 31) ? 0.6 : 1; }
-function scoreMap(pool, st, kind, g){
-  const maxF = Math.max(1e-9, ...pool.map(v => st.wfreq[v]));
-  const gap = expectedGap(kind, g);
+function scoreMap(pool, st){
+  const maxF = Math.max(1, ...pool.map(v => st.freq[v]));
+  const maxS = Math.max(1, ...pool.map(v => st.since[v]));
   const sc = {};
   pool.forEach(v => {
-    const f = st.wfreq[v]/maxF;
-    // Overdue as an absolute ratio: draws-since-last-hit / expected gap,
-    // capped at 3x the expected gap (a number 3x overdue scores 1).
-    const s = Math.min(st.since[v]/gap, 3)/3;
-    const base = mode === "hot" ? f : mode === "overdue" ? s : (f + s)/2;
-    sc[v] = base * (avoidCrowd ? crowdFactor(v, kind) : 1);
+    const f = st.freq[v]/maxF, s = st.since[v]/maxS;
+    sc[v] = mode === "hot" ? f : mode === "overdue" ? s : (f + s)/2;
   });
   return sc;
 }
 function weightedPick(cands, scores){
   const w = cands.map(v => Math.max(0.05, scores[v]));
-  let total = w.reduce((a,b) => a+b, 0), r = randFloat()*total;
+  let total = w.reduce((a,b) => a+b, 0), r = Math.random()*total;
   for (let i = 0; i < cands.length; i++){ r -= w[i]; if (r <= 0) return cands[i]; }
   return cands[cands.length-1];
 }
-function choose(pool, st, count, kind, g){
-  const sc = scoreMap(pool, st, kind, g);
+function choose(pool, st, count){
+  const sc = scoreMap(pool, st);
   const ranked = [...pool].sort((a,b) => sc[b]-sc[a]);
   const candPool = ranked.slice(0, Math.min(pool.length, count + 6));
   const picked = [];
@@ -414,39 +335,12 @@ function choose(pool, st, count, kind, g){
     const v = weightedPick(candPool.filter(x => !used.has(x)), sc);
     used.add(v); picked.push(v);
   }
-  return picked.map(v => ({v, freq: st.freq[v], since: st.since[v], ratio: st.since[v]/expectedGap(kind, g)}));
+  return picked.map(v => ({v, freq: st.freq[v], since: st.since[v]}));
 }
 
-/* How "crowded" a finished pick is — how much it looks like the slips
-   everybody else is playing. Lower is less crowded. */
-function crowdedScore(mainPicks, g){
-  const vals = mainPicks.map(p => p.v);
-  let s = 0;
-  if (g.kind === "digits"){
-    if (vals.every(v => v === vals[0])) s += 2;                    // 7-7-7
-    const asc = vals.every((v, i) => i === 0 || v === vals[i-1] + 1);
-    const desc = vals.every((v, i) => i === 0 || v === vals[i-1] - 1);
-    if (asc || desc) s += 1;                                       // 1-2-3
-    return s;
-  }
-  const bday = vals.filter(v => v <= 31).length / vals.length;
-  s += bday;                                                        // all-birthday slip = +1
-  const sorted = [...vals].sort((a, b) => a - b);
-  let run = 1, maxRun = 1;
-  for (let i = 1; i < sorted.length; i++){
-    run = sorted[i] === sorted[i-1] + 1 ? run + 1 : 1;
-    maxRun = Math.max(maxRun, run);
-  }
-  if (maxRun >= 3) s += 1;                                         // e.g. 12-13-14 in there
-  const step = sorted[1] - sorted[0];
-  if (step > 0 && sorted.every((v, i) => i === 0 || v - sorted[i-1] === step)) s += 1; // 5-10-15-20-25
-  if (vals.every(v => v % 2 === 0) || vals.every(v => v % 2 === 1)) s += 0.5; // all even / all odd
-  return s;
-}
-
-function buildOnePick(){
+function makePick(){
   const g = GAMES[game], draws = DATA[game];
-  const wDraws = windowDraws(draws, game);
+  const wDraws = windowDraws(draws);
   const story = {hottest:null, sleepiest:null};
   let mainPicks = [], bonusPick = null;
   const note = (p) => {
@@ -459,7 +353,7 @@ function buildOnePick(){
       const st = statsFor(wDraws.map(d => [d.numbers[pos]]), pool);
       const stAll = statsFor(draws.map(d => [d.numbers[pos]]), pool);
       pool.forEach(v => st.since[v] = stAll.since[v]); // overdue measured on full history
-      const [p] = choose(pool, st, 1, "digits", g);
+      const [p] = choose(pool, st, 1);
       mainPicks.push(p); note(p);
     }
   } else {
@@ -467,35 +361,22 @@ function buildOnePick(){
     const st = statsFor(wDraws.map(d => d.numbers), pool);
     const stAll = statsFor(draws.map(d => d.numbers), pool);
     pool.forEach(v => st.since[v] = stAll.since[v]);
-    mainPicks = choose(pool, st, g.main, "main", g).sort((a,b) => a.v-b.v);
+    mainPicks = choose(pool, st, g.main).sort((a,b) => a.v-b.v);
     mainPicks.forEach(note);
     if (g.bonusMax){
     const bPool = Array.from({length: g.bonusMax}, (_,i) => i+1);
     const bst = statsFor(wDraws.map(d => [d.bonus]), bPool);
     const bstAll = statsFor(draws.map(d => [d.bonus]), bPool);
     bPool.forEach(v => bst.since[v] = bstAll.since[v]);
-    [bonusPick] = choose(bPool, bst, 1, "bonus", g);
+    [bonusPick] = choose(bPool, bst, 1);
     }
   }
   return {mainPicks, bonusPick, story, drawsUsed: wDraws.length};
 }
 
-function makePick(){
-  if (!avoidCrowd) return buildOnePick();
-  // With crowd-avoidance on, roll a few slips and keep the least crowded.
-  let best = null, bestScore = Infinity;
-  for (let i = 0; i < 25; i++){
-    const p = buildOnePick();
-    const s = crowdedScore(p.mainPicks, GAMES[game]);
-    if (s < bestScore){ best = p; bestScore = s; }
-    if (s === 0) break;
-  }
-  return best;
-}
-
 let lastFortune = -1;
 function fortuneFor(){
-  let i = Math.floor(randFloat()*FORTUNES.length);
+  let i = Math.floor(Math.random()*FORTUNES.length);
   if (i === lastFortune) i = (i + 1) % FORTUNES.length;
   lastFortune = i;
   return FORTUNES[i];
@@ -523,31 +404,19 @@ function buildPills(){
   $("gamePills").innerHTML = Object.entries(GAMES).map(([k,g]) =>
     `<button class="pill ${k===game?'on':''}" data-game="${k}">${g.name}</button>`).join("");
   document.querySelectorAll("#gamePills .pill").forEach(b =>
-    b.onclick = () => { game = b.dataset.game; buildPills(); renderLatest(); renderCutoff(); renderJackpot(); renderStats(); resetCookie(); });
+    b.onclick = () => { game = b.dataset.game; buildPills(); renderLatest(); renderCutoff(); resetCookie(); });
 }
 const MODE_NOTES = {
   blend: "✨ <b>Destiny Blend</b> — the balanced pick. The cookie mixes numbers that have been hitting often with numbers that are long overdue, so your slip gets a little of both.",
   hot: "🔥 <b>Hot Streak</b> — ride the hot hand. The cookie favors the numbers that have come up most often lately, on the theory that hot numbers stay hot.",
   overdue: "🌙 <b>Long Sleep</b> — wake the sleepers. The cookie favors the numbers that haven't been drawn in the longest time, on the theory that they're due."
 };
-function spanText(key, n){
-  const days = n / drawsPerDay(key);
-  if (days < 45) return Math.round(days) + " days";
-  return (days / 30).toFixed(1) + " months";
-}
 function updateModeNote(){
-  const n = effWin(game);
   const span = mode === "overdue"
-    ? " How long each number has slept is counted across the full history on record. Overdue is measured against how often each number should hit — a number asleep three times its usual gap scores highest."
-    : " Judged from " + (win === 0 ? "the game's full draw history on record" : "the last " + n + " draws (about " + spanText(game, n) + ")") + ".";
+    ? " How long each number has slept is counted across the full history on record."
+    : " Judged from " + (win === 0 ? "the game's full draw history on record" : "the last " + win + " draws") + ".";
   $("modeNote").innerHTML = MODE_NOTES[mode] + span;
 }
-$("crowdToggle").onclick = () => {
-  avoidCrowd = !avoidCrowd;
-  $("crowdToggle").classList.toggle("on", avoidCrowd);
-  $("crowdToggle").setAttribute("aria-pressed", String(avoidCrowd));
-  resetCookie();
-};
 $("modeSeg").querySelectorAll(".pill").forEach(b => b.onclick = () => {
   mode = b.dataset.mode;
   $("modeSeg").querySelectorAll(".pill").forEach(x => x.classList.toggle("on", x===b));
@@ -558,7 +427,6 @@ $("winSeg").querySelectorAll(".pill").forEach(b => b.onclick = () => {
   win = parseInt(b.dataset.win, 10);
   $("winSeg").querySelectorAll(".pill").forEach(x => x.classList.toggle("on", x===b));
   updateModeNote();
-  renderStats();
   resetCookie();
 });
 updateModeNote();
@@ -584,7 +452,7 @@ function crack(){
   $("slipLucky").innerHTML = `<b>Lucky Numbers</b><br>${luckyLine(currentPick)}`;
   const s = currentPick.story;
   $("slipChips").innerHTML =
-    `<span class="chip">🌙 Longest sleeper: ${s.sleepiest.v} · ${s.sleepiest.since} draws (${s.sleepiest.ratio.toFixed(1)}× overdue)</span>` +
+    `<span class="chip">🌙 Longest sleeper: ${s.sleepiest.v} · ${s.sleepiest.since} draws</span>` +
     `<span class="chip">🔥 Hottest: ${s.hottest.v} · ${s.hottest.freq} hits</span>` +
     `<span class="chip">📜 Read from ${currentPick.drawsUsed} draws</span>`;
   // sparkles
@@ -603,207 +471,6 @@ function crack(){
 }
 $("cookieZone").addEventListener("click", crack);
 $("againBtn").onclick = () => { resetCookie(); setTimeout(crack, 60); };
-
-/* ---------- real stats ---------- */
-function renderStats(){
-  const body = $("statsBody");
-  if (!body) return;
-  const g = GAMES[game], draws = DATA[game];
-  const wDraws = windowDraws(draws, game);
-  const n = wDraws.length;
-  let html = `<p class="stats-sub">Observed vs expected for ${g.name}, from the last ${n} draws${win === 0 ? " (full history)" : ""}. "Seen" counts hits in that window; "Expected" is what chance alone would give. "Since" counts draws since the number last hit, across the full history on record; × gap is how many times longer than its usual gap that is.</p>`;
-  const table = (title, rows) => {
-    const trs = rows.map(r =>
-      `<tr><td>${r.v}</td><td>${r.seen}</td><td>${r.exp.toFixed(1)}</td><td>${r.since}</td><td class="${r.ratio >= 2 ? "hot" : ""}">${r.ratio.toFixed(1)}×</td></tr>`).join("");
-    return `<table class="stats-table"><thead><tr><th colspan="5" style="text-align:left">${title}</th></tr><tr><th>Number</th><th>Seen</th><th>Expected</th><th>Since</th><th>× gap</th></tr></thead><tbody>${trs}</tbody></table>`;
-  };
-  const rowsFor = (pool, freq, since, expPerDraw, gap) =>
-    pool.map(v => ({v, seen: freq[v], exp: expPerDraw, since: since[v], ratio: since[v] / gap}));
-  if (g.kind === "digits"){
-    for (let pos = 0; pos < g.positions; pos++){
-      const pool = [0,1,2,3,4,5,6,7,8,9];
-      const st = statsFor(wDraws.map(d => [d.numbers[pos]]), pool);
-      const stAll = statsFor(draws.map(d => [d.numbers[pos]]), pool);
-      pool.forEach(v => st.since[v] = stAll.since[v]);
-      html += table("Position " + (pos + 1), rowsFor(pool, st.freq, st.since, n / 10, 10));
-    }
-  } else {
-    const pool = Array.from({length: g.mainMax}, (_,i) => i+1);
-    const st = statsFor(wDraws.map(d => d.numbers), pool);
-    const stAll = statsFor(draws.map(d => d.numbers), pool);
-    pool.forEach(v => st.since[v] = stAll.since[v]);
-    html += table("Main numbers", rowsFor(pool, st.freq, st.since, n * g.main / g.mainMax, g.mainMax / g.main));
-    if (g.bonusMax){
-      const bPool = Array.from({length: g.bonusMax}, (_,i) => i+1);
-      const bst = statsFor(wDraws.map(d => [d.bonus]), bPool);
-      const bstAll = statsFor(draws.map(d => [d.bonus]), bPool);
-      bPool.forEach(v => bst.since[v] = bstAll.since[v]);
-      html += table(g.bonusName, rowsFor(bPool, bst.freq, bst.since, n / g.bonusMax, g.bonusMax));
-    }
-  }
-  body.innerHTML = html;
-}
-$("statsDetails").addEventListener("toggle", () => { if ($("statsDetails").open) renderStats(); });
-
-/* ---------- jackpot value signal ---------- */
-const JACKPOT_GAMES = {
-  megamillions: {ticket: 5},
-  powerball: {ticket: 2},
-  rollingcash5: {ticket: 1},
-  classiclotto: {ticket: 1}
-};
-function nCr(n, r){
-  if (r < 0 || r > n) return 0;
-  r = Math.min(r, n - r);
-  let out = 1;
-  for (let i = 0; i < r; i++) out = out * (n - i) / (i + 1);
-  return Math.round(out);
-}
-function jackpotOdds(g){
-  const combos = nCr(g.mainMax, g.main);
-  return g.bonusMax ? combos * g.bonusMax : combos;
-}
-/* DATA.jackpots is an optional list of {game, date, amount} — the jackpot
-   on offer for that game's next draw, in dollars. It is not part of the
-   draw-history fetch: no jackpot column exists in the NY open-data feeds
-   or the LotteryUSA archives, so no fetcher writes it. Add entries from
-   a future source (or by hand); with no entry for the current game this
-   line stays hidden. Shape: {"game":"powerball","date":"2026-11-03","amount":500000000} */
-function renderJackpot(){
-  const el = $("jackpotLine");
-  const cfg = JACKPOT_GAMES[game];
-  const entries = (DATA.jackpots || []).filter(j => j.game === game);
-  if (!cfg || !entries.length){ el.hidden = true; el.innerHTML = ""; return; }
-  const latest = entries[entries.length - 1];
-  const g = GAMES[game];
-  const odds = jackpotOdds(g);
-  const ev = latest.amount / odds;
-  const mult = ev / cfg.ticket;
-  const good = ev > cfg.ticket;
-  el.innerHTML = "💰 Jackpot <b>$" + Math.round(latest.amount).toLocaleString("en-US") + "</b> (" + fmtDate(latest.date) + ") · odds 1 in " +
-    odds.toLocaleString("en-US") + " · jackpot-only expected value <b>$" + ev.toFixed(2) + "</b> on a $" + cfg.ticket + " ticket (" + mult.toFixed(2) + "×) — " +
-    (good ? "above the ticket price, so this draw is a comparatively good-value play."
-          : "below the ticket price, so this draw is ordinary value.") +
-    " Before taxes, splits, and lower prizes.";
-  el.hidden = false;
-}
-
-/* ---------- live refresh ---------- */
-/* Fresh draws straight from the public sources, no rebuild needed.
-   The NY Lottery open-data feeds (Socrata) send Access-Control-Allow-Origin: *,
-   so a browser can fetch them directly. The five Ohio games have no
-   CORS-friendly JSON feed — the Ohio Lottery publishes server-rendered
-   pages plus CSV/PDF archives, and LotteryUSA's archive pages send no
-   CORS headers (and no public JSON API exists) — so Pick 3/4/5,
-   Rolling Cash 5 and Classic Lotto stay on the embedded build-time data
-   and update with the next site rebuild. On any failure the app silently
-   keeps the embedded data; the timestamp below always shows the newest
-   draw actually being displayed. */
-const LIVE = {
-  megamillions: {dataset: "5xaw-6ayf", bonus: "mega_ball"},
-  powerball: {dataset: "d6yy-54nr", bonus: null},   // bonus is the 6th number in winning_numbers
-  millionaireforlife: {dataset: "a4w9-a3tp", bonus: "mill_ball"}
-};
-let liveBusy = false, lastCheck = null, lastCheckAdded = 0, lastCheckOk = null;
-
-function newestDate(){
-  let newest = "";
-  Object.values(DATA).forEach(draws => draws.forEach(d => { if (d.date > newest) newest = d.date; }));
-  return newest;
-}
-function fmtTime(d){
-  let h = d.getHours(), m = String(d.getMinutes()).padStart(2, "0");
-  const ap = h >= 12 ? "PM" : "AM"; h = h % 12 || 12;
-  return h + ":" + m + " " + ap;
-}
-function renderFresh(){
-  const newest = newestDate();
-  let txt = "📅 Draws through " + fmtDate(newest);
-  if (lastCheck === null) txt += " · from the last build";
-  else {
-    txt += " · checked " + fmtTime(lastCheck);
-    if (lastCheckOk === false) txt += " — live feed unreachable, last build's data";
-    else if (lastCheckAdded > 0) txt += " — " + lastCheckAdded + " new draw" + (lastCheckAdded > 1 ? "s" : "");
-    else txt += " — up to date";
-  }
-  $("freshLine").textContent = txt;
-  const fb = document.querySelector("#pageFooter b");
-  if (fb) fb.textContent = fmtDate(newest);
-}
-/* Merge one Socrata response into a game's stored draws. Newer draws only;
-   a date already on file is never overwritten (embedded data wins a
-   conflict). Returns how many draws were added. */
-function mergeLiveDraws(key, rows){
-  const g = GAMES[key], cfg = LIVE[key];
-  const draws = DATA[key];
-  const have = new Set(draws.map(d => d.date));
-  let n = 0;
-  for (const row of rows){
-    const date = String(row.draw_date || "").slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || have.has(date)) continue;
-    const nums = String(row.winning_numbers || "").trim().split(/\s+/).map(Number);
-    if (nums.length !== g.main + (cfg.bonus ? 0 : 1)) continue;
-    let bonus = null;
-    if (cfg.bonus) bonus = Number(row[cfg.bonus]);
-    else bonus = nums.pop(); // Powerball: last number is the Powerball
-    if (nums.length !== g.main) continue;
-    if (nums.some(v => !Number.isInteger(v) || v < 1 || v > g.mainMax)) continue;
-    if (new Set(nums).size !== nums.length) continue;
-    if (!Number.isInteger(bonus) || bonus < 1 || bonus > g.bonusMax) continue;
-    draws.push({date, numbers: [...nums].sort((a,b) => a-b), bonus});
-    have.add(date); n++;
-  }
-  if (n){
-    draws.sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
-    if (draws.length > 400) draws.splice(0, draws.length - 400);
-  }
-  return n;
-}
-/* Fetch the newest draws for the three national games. fetchFn is
-   injectable for testing; defaults to the browser's fetch. Never throws:
-   a failed source just contributes 0. Returns {added, ok} — ok is true
-   when at least one source answered. */
-async function fetchLiveDraws(fetchFn){
-  const impl = fetchFn || fetch;
-  const jobs = Object.keys(LIVE).map(async (key) => {
-    const url = "https://data.ny.gov/resource/" + LIVE[key].dataset + ".json?$limit=5&$order=draw_date%20DESC";
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 10000);
-    try {
-      const res = await impl(url, {signal: ctrl.signal});
-      if (!res.ok) return {added: 0, ok: false};
-      const rows = await res.json();
-      if (!Array.isArray(rows)) return {added: 0, ok: false};
-      return {added: mergeLiveDraws(key, rows), ok: true};
-    } catch(e){ return {added: 0, ok: false}; }
-    finally { clearTimeout(timer); }
-  });
-  const results = await Promise.all(jobs);
-  return {
-    added: results.reduce((a, r) => a + r.added, 0),
-    ok: results.some(r => r.ok)
-  };
-}
-async function refreshLive(manual){
-  if (liveBusy) return;
-  liveBusy = true;
-  const btn = $("refreshBtn");
-  if (btn){ btn.disabled = true; btn.textContent = "⟳ Checking…"; }
-  let result = {added: 0, ok: false};
-  try { result = await fetchLiveDraws(); }
-  catch(e){ result = {added: 0, ok: false}; }
-  lastCheck = new Date();
-  lastCheckAdded = result.added;
-  lastCheckOk = result.ok;
-  if (result.added > 0){
-    renderLatest(); renderCutoff(); renderJackpot(); renderStats();
-    resetCookie();
-  }
-  renderFresh();
-  if (btn){ btn.disabled = false; btn.textContent = "↻ Refresh draws"; }
-  liveBusy = false;
-}
-$("refreshBtn").onclick = () => refreshLive(true);
 
 /* ---------- cookie jar ---------- */
 function loadJar(){ try { return JSON.parse(localStorage.getItem("crackpotJar") || "[]"); } catch(e){ return []; } }
@@ -1189,7 +856,7 @@ function renderCutoff(){
 }
 setInterval(renderCutoff, 30000);
 
-buildPills(); renderLatest(); renderCutoff(); renderJackpot(); renderStats(); renderJar(); renderFresh(); refreshLive(false);
+buildPills(); renderLatest(); renderCutoff(); renderJar();
 
 /* On load: if a saved slip has a win that hasn't been celebrated yet,
    throw the party for the single best one. */
