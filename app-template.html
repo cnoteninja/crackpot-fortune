@@ -101,6 +101,28 @@
   .jar-check{width:100%; background:#f2c14e1a; border:1px solid var(--gold); color:var(--gold); border-radius:12px; padding:11px; font-size:.95rem; font-weight:700; cursor:pointer; margin-bottom:4px}
   .jar-check:active{transform:scale(.99)}
   .jar-status{font-size:.88rem; color:var(--gold); min-height:1.2em; margin:4px 2px 8px; text-align:center}
+  .crowd-row{display:flex; align-items:center; gap:8px; margin-top:12px}
+  .crowd-note{font-size:.85rem; line-height:1.45; opacity:.85; margin:8px 2px 0}
+  .fair-note{font-size:.82rem; line-height:1.45; opacity:.8; text-align:center; margin:12px 4px 0}
+  .jackpot{font-size:.92rem; margin-top:10px; color:var(--gold); line-height:1.5}
+  .fresh-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:12px; flex-wrap:wrap}
+  .fresh-row #freshLine{font-size:.85rem; opacity:.9}
+  .fresh-note{font-size:.78rem; opacity:.7; margin:6px 2px 0; line-height:1.45}
+  .pill:disabled{opacity:.45; cursor:default}
+  .state-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  .state-row select,.state-row input{background:#0c0c18; color:#f5f1e8; border:1px solid var(--line); border-radius:8px; padding:9px 10px; font-size:1rem; font-family:inherit}
+  .state-row select{flex:1 1 170px}
+  .state-row input{flex:0 1 96px}
+  .state-row .pill{flex:0 0 auto}
+  .state-or{opacity:.7; font-size:.9rem}
+  .state-note{font-size:.85rem; color:var(--gold); margin:8px 2px 0; min-height:1.2em; line-height:1.45}
+  details.stats summary{cursor:pointer; font-size:.92rem; font-weight:700; color:var(--gold); padding:4px 0}
+  .stats-sub{font-size:.85rem; opacity:.85; margin:8px 0 0; line-height:1.45}
+  .stats-table{width:100%; border-collapse:collapse; font-size:.82rem; margin-top:10px}
+  .stats-table th,.stats-table td{padding:4px 6px; text-align:right; border-bottom:1px solid #ffffff14}
+  .stats-table th:first-child,.stats-table td:first-child{text-align:left}
+  .stats-table th{color:var(--gold); font-size:.72rem; text-transform:uppercase; letter-spacing:.08em}
+  .stats-table td.hot{color:var(--gold); font-weight:700}
   .empty{opacity:.65; font-size:.9rem; text-align:center; padding:8px 0 2px}
   /* win celebration overlay */
   .win-overlay{position:fixed; inset:0; z-index:60; background:rgba(10,7,28,.94); display:flex; align-items:center; justify-content:center; overflow:hidden}
@@ -143,16 +165,33 @@
 <div class="wrap">
   <header>
     <h1><span class="cookie">🥠</span> Crackpot Fortune</h1>
-    <p class="tag">A fortune-cookie lottery picker for Ohio's 8 draw games. Every pick is generated from real draw history — hot numbers, long-overdue numbers, or a blend of both — and served the classic way: a fortune, then your lucky numbers.</p>
+    <p class="tag" id="tagline">A fortune-cookie lottery picker for Ohio's 8 draw games. Every pick is generated from real draw history — hot numbers, long-overdue numbers, or a blend of both — and served the classic way: a fortune, then your lucky numbers.</p>
     <p class="moon" id="moonLine"></p>
     <img class="art" src="__ART__" alt="A fortune cookie cracking open under a starry sky, its slip glowing with numbers">
   </header>
+
+  <section class="card">
+    <p class="lbl">Your state</p>
+    <div class="state-row">
+      <select id="stateSelect" aria-label="State"></select>
+      <span class="state-or">or ZIP</span>
+      <input id="zipInput" type="text" inputmode="numeric" autocomplete="postal-code" placeholder="44130" maxlength="5" aria-label="ZIP code">
+      <button class="pill" id="zipBtn" type="button">Go</button>
+    </div>
+    <p class="state-note" id="stateNote"></p>
+  </section>
 
   <section class="card">
     <p class="lbl">Choose your game</p>
     <div class="pills" id="gamePills"></div>
     <p class="latest" id="latestLine"></p>
     <p class="cutoff" id="cutoffLine"></p>
+    <p class="jackpot" id="jackpotLine" hidden></p>
+    <div class="fresh-row">
+      <span id="freshLine">📅 Draws through … · from the last build</span>
+      <button class="pill" id="refreshBtn">↻ Refresh draws</button>
+    </div>
+    <p class="fresh-note" id="freshNote">Live check covers Mega Millions, Powerball &amp; Millionaire for Life (New York open data). Ohio games — Pick 3/4/5, Rolling Cash 5 &amp; Classic Lotto — update with each site rebuild.</p>
   </section>
 
   <section class="card">
@@ -165,10 +204,14 @@
     <p class="mode-note" id="modeNote"></p>
     <p class="lbl" style="margin-top:14px">Reading the last…</p>
     <div class="seg" id="winSeg">
-      <button class="pill" data-win="30">30 draws</button>
-      <button class="pill on" data-win="100">100 draws</button>
+      <button class="pill" data-win="30">≈2 weeks</button>
+      <button class="pill on" data-win="100">≈2 months</button>
       <button class="pill" data-win="0">All draws</button>
     </div>
+    <div class="crowd-row">
+      <button class="pill on" id="crowdToggle" aria-pressed="true">🙈 Avoid the crowd</button>
+    </div>
+    <p class="crowd-note">Steers picks away from the numbers everybody plays — birthdays (1–31), neat sequences, and repeats. It won't make you more likely to win, but if you do win, you'll share the jackpot with fewer people.</p>
   </section>
 
   <section class="card stage" id="stageCard">
@@ -189,6 +232,14 @@
       <button class="act again" id="againBtn">🥠 Crack another</button>
       <button class="act keep" id="keepBtn">Keep this slip</button>
     </div>
+    <p class="fair-note">Every draw is independent — hot, cold, and overdue are stories about the past, not predictions. These picks are for fun.</p>
+  </section>
+
+  <section class="card">
+    <details class="stats" id="statsDetails">
+      <summary>📊 The numbers behind this game — observed vs expected</summary>
+      <div id="statsBody"></div>
+    </details>
   </section>
 
   <section class="card">
@@ -198,8 +249,8 @@
     <div id="jarList"></div>
   </section>
 
-  <footer>
-    Draw history through <b>Oct 21, 2026</b> — Ohio Pick 3/4/5, Rolling Cash 5 &amp; Classic Lotto via LotteryUSA's results archive; Mega Millions, Powerball &amp; Millionaire for Life via New York Lottery open data.<br>
+  <footer id="pageFooter">
+    Draw history through <b>Oct 21, 2026</b> — Ohio Pick 3/4/5, Rolling Cash 5 &amp; Classic Lotto via LotteryUSA's results archive; Mega Millions, Powerball &amp; Millionaire for Life and New York's Numbers, Win 4, Take 5, Pick 10 &amp; NY Lotto via New York Lottery open data; Pennsylvania, Michigan, Indiana, Kentucky &amp; West Virginia games via LotteryUSA's results archive.<br>
     The honest print: every draw is independent and no cookie, however charming, can predict one. Crackpot Fortune reads patterns for the joy of it. Play for fun, never with money you need.
   </footer>
 </div>
@@ -227,8 +278,139 @@ const GAMES = {
   powerball:{name:"Powerball", kind:"balls", main:5, mainMax:69, bonusMax:26, bonusName:"Powerball", sched:[{days:[1,3,6], draw:"22:59", cutoff:"22:00"}]},
   rollingcash5:{name:"Rolling Cash 5", kind:"balls", main:5, mainMax:39, sched:[{days:[0,1,2,3,4,5,6], draw:"19:05", cutoff:"19:00"}]},
   classiclotto:{name:"Classic Lotto", kind:"balls", main:6, mainMax:49, sched:[{days:[1,3,6], draw:"19:05", cutoff:"19:00"}]},
-  millionaireforlife:{name:"Millionaire for Life", kind:"balls", main:5, mainMax:58, bonusMax:5, bonusName:"Millionaire Ball", sched:[{days:[0,1,2,3,4,5,6], draw:"23:15", cutoff:"22:15"}]}
+  millionaireforlife:{name:"Millionaire for Life", kind:"balls", main:5, mainMax:58, bonusMax:5, bonusName:"Millionaire Ball", sched:[{days:[0,1,2,3,4,5,6], draw:"23:15", cutoff:"22:15"}]},
+  /* --- Phase 2: New York (Socrata open data) --- */
+  ny_numbers:{name:"NY Numbers", kind:"digits", positions:3, sched:[{days:[0,1,2,3,4,5,6], draw:"14:30", cutoff:"14:15", label:"Midday"},{days:[0,1,2,3,4,5,6], draw:"22:30", cutoff:"22:20", label:"Evening"}]},
+  ny_win4:{name:"NY Win 4", kind:"digits", positions:4, sched:[{days:[0,1,2,3,4,5,6], draw:"14:30", cutoff:"14:15", label:"Midday"},{days:[0,1,2,3,4,5,6], draw:"22:30", cutoff:"22:20", label:"Evening"}]},
+  ny_take5:{name:"NY Take 5", kind:"balls", main:5, mainMax:39, sched:[{days:[0,1,2,3,4,5,6], draw:"14:30", cutoff:"14:15", label:"Midday"},{days:[0,1,2,3,4,5,6], draw:"22:30", cutoff:"22:20", label:"Evening"}]},
+  /* drawMain: a Pick 10 draw holds 20 numbers; a slip plays 10 of them. */
+  ny_pick10:{name:"NY Pick 10", kind:"balls", main:10, drawMain:20, mainMax:80, zeroPays:true, sched:[{days:[0,1,2,3,4,5,6], draw:"20:30", cutoff:"20:00"}]},
+  /* NY Lotto bonus range 1-59 verified against the full Socrata archive. */
+  ny_lotto:{name:"NY Lotto", kind:"balls", main:6, mainMax:59, bonusMax:59, bonusName:"Bonus Ball", sched:[{days:[3,6], draw:"20:15", cutoff:"20:00"}]},
+  /* --- Phase 2: Pennsylvania (LotteryUSA) --- */
+  pa_pick2:{name:"PA Pick 2", kind:"digits", positions:2, sched:[{days:[0,1,2,3,4,5,6], draw:"13:35", cutoff:"13:05", label:"Day"},{days:[0,1,2,3,4,5,6], draw:"18:59", cutoff:"18:57", label:"Evening"}]},
+  pa_pick3:{name:"PA Pick 3", kind:"digits", positions:3, sched:[{days:[0,1,2,3,4,5,6], draw:"13:35", cutoff:"13:05", label:"Day"},{days:[0,1,2,3,4,5,6], draw:"18:59", cutoff:"18:57", label:"Evening"}]},
+  pa_pick4:{name:"PA Pick 4", kind:"digits", positions:4, sched:[{days:[0,1,2,3,4,5,6], draw:"13:35", cutoff:"13:05", label:"Day"},{days:[0,1,2,3,4,5,6], draw:"18:59", cutoff:"18:57", label:"Evening"}]},
+  pa_pick5:{name:"PA Pick 5", kind:"digits", positions:5, sched:[{days:[0,1,2,3,4,5,6], draw:"13:35", cutoff:"13:05", label:"Day"},{days:[0,1,2,3,4,5,6], draw:"18:59", cutoff:"18:57", label:"Evening"}]},
+  pa_cash5:{name:"PA Cash 5", kind:"balls", main:5, mainMax:43, sched:[{days:[0,1,2,3,4,5,6], draw:"18:59", cutoff:"18:57"}]},
+  pa_match6:{name:"PA Match 6", kind:"balls", main:6, mainMax:49, sched:[{days:[0,1,2,3,4,5,6], draw:"18:59", cutoff:"18:57"}]},
+  pa_treasurehunt:{name:"PA Treasure Hunt", kind:"balls", main:5, mainMax:30, sched:[{days:[0,1,2,3,4,5,6], draw:"13:35", cutoff:"13:05"}]},
+  /* --- Phase 2: Michigan (LotteryUSA). Midday cutoff 12:49 per LotteryUSA
+     schedule table; the Phase 1 catalog said 12:39 — flagged for an
+     official check, 12:49 used. --- */
+  mi_daily3:{name:"MI Daily 3", kind:"digits", positions:3, sched:[{days:[0,1,2,3,4,5,6], draw:"12:59", cutoff:"12:49", label:"Midday"},{days:[0,1,2,3,4,5,6], draw:"19:29", cutoff:"19:08", label:"Evening"}]},
+  mi_daily4:{name:"MI Daily 4", kind:"digits", positions:4, sched:[{days:[0,1,2,3,4,5,6], draw:"12:59", cutoff:"12:49", label:"Midday"},{days:[0,1,2,3,4,5,6], draw:"19:29", cutoff:"19:08", label:"Evening"}]},
+  mi_daily5:{name:"MI Daily 5", kind:"digits", positions:5, sched:[{days:[0,1,2,3,4,5,6], draw:"12:59", cutoff:"12:49", label:"Midday"},{days:[0,1,2,3,4,5,6], draw:"19:29", cutoff:"19:08", label:"Evening"}]},
+  mi_fantasy5:{name:"MI Fantasy 5", kind:"balls", main:5, mainMax:39, sched:[{days:[0,1,2,3,4,5,6], draw:"19:29", cutoff:"19:08"}]},
+  mi_lotto47:{name:"MI Lotto 47", kind:"balls", main:6, mainMax:47, sched:[{days:[3,6], draw:"19:29", cutoff:"19:08"}]},
+  /* --- Phase 2: Indiana (LotteryUSA) --- */
+  in_daily3:{name:"IN Daily 3", kind:"digits", positions:3, sched:[{days:[0,1,2,3,4,5,6], draw:"13:20", cutoff:"13:10", label:"Midday"},{days:[0,1,2,3,4,5,6], draw:"23:00", cutoff:"22:39", label:"Evening"}]},
+  in_daily4:{name:"IN Daily 4", kind:"digits", positions:4, sched:[{days:[0,1,2,3,4,5,6], draw:"13:20", cutoff:"13:10", label:"Midday"},{days:[0,1,2,3,4,5,6], draw:"23:00", cutoff:"22:39", label:"Evening"}]},
+  /* --- Phase 2: Kentucky (LotteryUSA). Draw times confirmed; sales
+     cutoffs NOT published — cutoff is null, so the app counts down to the
+     draw time and says the cutoff is unpublished. --- */
+  ky_pick3:{name:"KY Pick 3", kind:"digits", positions:3, sched:[{days:[0,1,2,3,4,5,6], draw:"13:20", cutoff:null, label:"Midday"},{days:[0,1,2,3,4,5,6], draw:"23:00", cutoff:null, label:"Evening"}]},
+  ky_pick4:{name:"KY Pick 4", kind:"digits", positions:4, sched:[{days:[0,1,2,3,4,5,6], draw:"13:20", cutoff:null, label:"Midday"},{days:[0,1,2,3,4,5,6], draw:"23:00", cutoff:null, label:"Evening"}]},
+  /* --- Phase 2: West Virginia (LotteryUSA) --- */
+  wv_daily3:{name:"WV Daily 3", kind:"digits", positions:3, sched:[{days:[1,2,3,4,5,6], draw:"18:59", cutoff:"18:49"}]},
+  wv_daily4:{name:"WV Daily 4", kind:"digits", positions:4, sched:[{days:[1,2,3,4,5,6], draw:"18:59", cutoff:"18:49"}]},
+  wv_cash25:{name:"WV Cash 25", kind:"balls", main:6, mainMax:25, sched:[{days:[1,2,4,5], draw:"18:59", cutoff:"18:49"}]}
 };
+
+/* ---------- states (Phase 2) ---------- */
+/* States with real draw data on file. The three national games
+   (Mega Millions, Powerball, Millionaire for Life) are sold in every
+   live state, so they appear in each state's list and share one data
+   source. Ohio's 8 games are unchanged. */
+const STATES = {
+  oh:{name:"Ohio", abbr:"OH", games:["pick3","pick4","pick5","megamillions","powerball","rollingcash5","classiclotto","millionaireforlife"]},
+  ny:{name:"New York", abbr:"NY", games:["ny_numbers","ny_win4","ny_take5","ny_pick10","ny_lotto","megamillions","powerball","millionaireforlife"]},
+  pa:{name:"Pennsylvania", abbr:"PA", games:["pa_pick2","pa_pick3","pa_pick4","pa_pick5","pa_cash5","pa_match6","pa_treasurehunt","megamillions","powerball","millionaireforlife"]},
+  mi:{name:"Michigan", abbr:"MI", games:["mi_daily3","mi_daily4","mi_daily5","mi_fantasy5","mi_lotto47","megamillions","powerball","millionaireforlife"]},
+  in:{name:"Indiana", abbr:"IN", games:["in_daily3","in_daily4","megamillions","powerball","millionaireforlife"]},
+  ky:{name:"Kentucky", abbr:"KY", games:["ky_pick3","ky_pick4","megamillions","powerball","millionaireforlife"]},
+  wv:{name:"West Virginia", abbr:"WV", games:["wv_daily3","wv_daily4","wv_cash25","megamillions","powerball","millionaireforlife"]}
+};
+/* Jurisdictions with a lottery but no working data source yet — shown in
+   the picker as coming soon, never with fake draws. */
+const COMING_SOON = [
+  {key:"az", name:"Arizona", abbr:"AZ"},{key:"ar", name:"Arkansas", abbr:"AR"},
+  {key:"ca", name:"California", abbr:"CA"},{key:"co", name:"Colorado", abbr:"CO"},
+  {key:"ct", name:"Connecticut", abbr:"CT"},{key:"de", name:"Delaware", abbr:"DE"},
+  {key:"dc", name:"District of Columbia", abbr:"DC"},{key:"fl", name:"Florida", abbr:"FL"},
+  {key:"ga", name:"Georgia", abbr:"GA"},{key:"id", name:"Idaho", abbr:"ID"},
+  {key:"il", name:"Illinois", abbr:"IL"},{key:"ia", name:"Iowa", abbr:"IA"},
+  {key:"ks", name:"Kansas", abbr:"KS"},{key:"la", name:"Louisiana", abbr:"LA"},
+  {key:"me", name:"Maine", abbr:"ME"},{key:"md", name:"Maryland", abbr:"MD"},
+  {key:"ma", name:"Massachusetts", abbr:"MA"},{key:"mn", name:"Minnesota", abbr:"MN"},
+  {key:"mo", name:"Missouri", abbr:"MO"},{key:"ms", name:"Mississippi", abbr:"MS"},
+  {key:"mt", name:"Montana", abbr:"MT"},{key:"ne", name:"Nebraska", abbr:"NE"},
+  {key:"nh", name:"New Hampshire", abbr:"NH"},{key:"nj", name:"New Jersey", abbr:"NJ"},
+  {key:"nm", name:"New Mexico", abbr:"NM"},{key:"nc", name:"North Carolina", abbr:"NC"},
+  {key:"nd", name:"North Dakota", abbr:"ND"},{key:"ok", name:"Oklahoma", abbr:"OK"},
+  {key:"or", name:"Oregon", abbr:"OR"},{key:"ri", name:"Rhode Island", abbr:"RI"},
+  {key:"sc", name:"South Carolina", abbr:"SC"},{key:"sd", name:"South Dakota", abbr:"SD"},
+  {key:"tn", name:"Tennessee", abbr:"TN"},{key:"tx", name:"Texas", abbr:"TX"},
+  {key:"vt", name:"Vermont", abbr:"VT"},{key:"va", name:"Virginia", abbr:"VA"},
+  {key:"wa", name:"Washington", abbr:"WA"},{key:"wi", name:"Wisconsin", abbr:"WI"},
+  {key:"wy", name:"Wyoming", abbr:"WY"},{key:"pr", name:"Puerto Rico", abbr:"PR"},
+  {key:"vi", name:"U.S. Virgin Islands", abbr:"VI"}
+];
+/* States with no state lottery at all — a ZIP there gets an honest note. */
+const NO_LOTTERY = {AL:"Alabama", AK:"Alaska", HI:"Hawaii", NV:"Nevada", UT:"Utah"};
+const ZIP_STATE = {"005":"NY","006":"PR","007":"PR","008":"VI","009":"PR","010":"MA","011":"MA","012":"MA","013":"MA","014":"MA","015":"MA","016":"MA","017":"MA","018":"MA","019":"MA","020":"MA","021":"MA","022":"MA","023":"MA","024":"MA","025":"MA","026":"MA","027":"MA","028":"RI","029":"RI","030":"NH","031":"NH","032":"NH","033":"NH","034":"NH","035":"NH","036":"NH","037":"NH","038":"NH","039":"ME","040":"ME","041":"ME","042":"ME","043":"ME","044":"ME","045":"ME","046":"ME","047":"ME","048":"ME","049":"ME","050":"VT","051":"VT","052":"VT","053":"VT","054":"VT","055":"MA","056":"VT","057":"VT","058":"VT","059":"VT","060":"CT","061":"CT","062":"CT","063":"CT","064":"CT","065":"CT","066":"CT","067":"CT","068":"CT","069":"CT","070":"NJ","071":"NJ","072":"NJ","073":"NJ","074":"NJ","075":"NJ","076":"NJ","077":"NJ","078":"NJ","079":"NJ","080":"NJ","081":"NJ","082":"NJ","083":"NJ","084":"NJ","085":"NJ","086":"NJ","087":"NJ","088":"NJ","089":"NJ","090":"","091":"","092":"","093":"","094":"","095":"","096":"","097":"","098":"","100":"NY","101":"NY","102":"NY","103":"NY","104":"NY","105":"NY","106":"NY","107":"NY","108":"NY","109":"NY","110":"NY","111":"NY","112":"NY","113":"NY","114":"NY","115":"NY","116":"NY","117":"NY","118":"NY","119":"NY","120":"NY","121":"NY","122":"NY","123":"NY","124":"NY","125":"NY","126":"NY","127":"NY","128":"NY","129":"NY","130":"NY","131":"NY","132":"NY","133":"NY","134":"NY","135":"NY","136":"NY","137":"NY","138":"NY","139":"NY","140":"NY","141":"NY","142":"NY","143":"NY","144":"NY","145":"NY","146":"NY","147":"NY","148":"NY","149":"NY","150":"PA","151":"PA","152":"PA","153":"PA","154":"PA","155":"PA","156":"PA","157":"PA","158":"PA","159":"PA","160":"PA","161":"PA","162":"PA","163":"PA","164":"PA","165":"PA","166":"PA","167":"PA","168":"PA","169":"PA","170":"PA","171":"PA","172":"PA","173":"PA","174":"PA","175":"PA","176":"PA","177":"PA","178":"PA","179":"PA","180":"PA","181":"PA","182":"PA","183":"PA","184":"PA","185":"PA","186":"PA","187":"PA","188":"PA","189":"PA","190":"PA","191":"PA","192":"PA","193":"PA","194":"PA","195":"PA","196":"PA","197":"DE","198":"DE","199":"DE","200":"DC","201":"VA","202":"DC","203":"DC","204":"DC","205":"DC","206":"MD","207":"MD","208":"MD","209":"MD","210":"MD","211":"MD","212":"MD","214":"MD","215":"MD","216":"MD","217":"MD","218":"MD","219":"MD","220":"VA","221":"VA","222":"VA","223":"VA","224":"VA","225":"VA","226":"VA","227":"VA","228":"VA","229":"VA","230":"VA","231":"VA","232":"VA","233":"VA","234":"VA","235":"VA","236":"VA","237":"VA","238":"VA","239":"VA","240":"VA","241":"VA","242":"VA","243":"VA","244":"VA","245":"VA","246":"VA","247":"WV","248":"WV","249":"WV","250":"WV","251":"WV","252":"WV","253":"WV","254":"WV","255":"WV","256":"WV","257":"WV","258":"WV","259":"WV","260":"WV","261":"WV","262":"WV","263":"WV","264":"WV","265":"WV","266":"WV","267":"WV","268":"WV","270":"NC","271":"NC","272":"NC","273":"NC","274":"NC","275":"NC","276":"NC","277":"NC","278":"NC","279":"NC","280":"NC","281":"NC","282":"NC","283":"NC","284":"NC","285":"NC","286":"NC","287":"NC","288":"NC","289":"NC","290":"SC","291":"SC","292":"SC","293":"SC","294":"SC","295":"SC","296":"SC","297":"SC","298":"SC","299":"SC","300":"GA","301":"GA","302":"GA","303":"GA","304":"GA","305":"GA","306":"GA","307":"GA","308":"GA","309":"GA","310":"GA","311":"GA","312":"GA","313":"GA","314":"GA","315":"GA","316":"GA","317":"GA","318":"GA","319":"GA","320":"FL","321":"FL","322":"FL","323":"FL","324":"FL","325":"FL","326":"FL","327":"FL","328":"FL","329":"FL","330":"FL","331":"FL","332":"FL","333":"FL","334":"FL","335":"FL","336":"FL","337":"FL","338":"FL","339":"FL","340":"","341":"FL","342":"FL","344":"FL","346":"FL","347":"FL","349":"FL","350":"AL","351":"AL","352":"AL","354":"AL","355":"AL","356":"AL","357":"AL","358":"AL","359":"AL","360":"AL","361":"AL","362":"AL","363":"AL","364":"AL","365":"AL","366":"AL","367":"AL","368":"AL","369":"AL","370":"TN","371":"TN","372":"TN","373":"TN","374":"TN","375":"TN","376":"TN","377":"TN","378":"TN","379":"TN","380":"TN","381":"TN","382":"TN","383":"TN","384":"TN","385":"TN","386":"MS","387":"MS","388":"MS","389":"MS","390":"MS","391":"MS","392":"MS","393":"MS","394":"MS","395":"MS","396":"MS","397":"MS","398":"GA","399":"GA","400":"KY","401":"KY","402":"KY","403":"KY","404":"KY","405":"KY","406":"KY","407":"KY","408":"KY","409":"KY","410":"KY","411":"KY","412":"KY","413":"KY","414":"KY","415":"KY","416":"KY","417":"KY","418":"KY","420":"KY","421":"KY","422":"KY","423":"KY","424":"KY","425":"KY","426":"KY","427":"KY","430":"OH","431":"OH","432":"OH","433":"OH","434":"OH","435":"OH","436":"OH","437":"OH","438":"OH","439":"OH","440":"OH","441":"OH","442":"OH","443":"OH","444":"OH","445":"OH","446":"OH","447":"OH","448":"OH","449":"OH","450":"OH","451":"OH","452":"OH","453":"OH","454":"OH","455":"OH","456":"OH","457":"OH","458":"OH","459":"OH","460":"IN","461":"IN","462":"IN","463":"IN","464":"IN","465":"IN","466":"IN","467":"IN","468":"IN","469":"IN","470":"IN","471":"IN","472":"IN","473":"IN","474":"IN","475":"IN","476":"IN","477":"IN","478":"IN","479":"IN","480":"MI","481":"MI","482":"MI","483":"MI","484":"MI","485":"MI","486":"MI","487":"MI","488":"MI","489":"MI","490":"MI","491":"MI","492":"MI","493":"MI","494":"MI","495":"MI","496":"MI","497":"MI","498":"MI","499":"MI","500":"IA","501":"IA","502":"IA","503":"IA","504":"IA","505":"IA","506":"IA","507":"IA","508":"IA","509":"IA","510":"IA","511":"IA","512":"IA","513":"IA","514":"IA","515":"IA","516":"IA","520":"IA","521":"IA","522":"IA","523":"IA","524":"IA","525":"IA","526":"IA","527":"IA","528":"IA","530":"WI","531":"WI","532":"WI","534":"WI","535":"WI","537":"WI","538":"WI","539":"WI","540":"WI","541":"WI","542":"WI","543":"WI","544":"WI","545":"WI","546":"WI","547":"WI","548":"WI","549":"WI","550":"MN","551":"MN","553":"MN","554":"MN","555":"MN","556":"MN","557":"MN","558":"MN","559":"MN","560":"MN","561":"MN","562":"MN","563":"MN","564":"MN","565":"MN","566":"MN","567":"MN","569":"DC","570":"SD","571":"SD","572":"SD","573":"SD","574":"SD","575":"SD","576":"SD","577":"SD","580":"ND","581":"ND","582":"ND","583":"ND","584":"ND","585":"ND","586":"ND","587":"ND","588":"ND","590":"MT","591":"MT","592":"MT","593":"MT","594":"MT","595":"MT","596":"MT","597":"MT","598":"MT","599":"MT","600":"IL","601":"IL","602":"IL","603":"IL","604":"IL","605":"IL","606":"IL","607":"IL","608":"IL","609":"IL","610":"IL","611":"IL","612":"IL","613":"IL","614":"IL","615":"IL","616":"IL","617":"IL","618":"IL","619":"IL","620":"IL","622":"IL","623":"IL","624":"IL","625":"IL","626":"IL","627":"IL","628":"IL","629":"IL","630":"MO","631":"MO","633":"MO","634":"MO","635":"MO","636":"MO","637":"MO","638":"MO","639":"MO","640":"MO","641":"MO","644":"MO","645":"MO","646":"MO","647":"MO","648":"MO","649":"MO","650":"MO","651":"MO","652":"MO","653":"MO","654":"MO","655":"MO","656":"MO","657":"MO","658":"MO","660":"KS","661":"KS","662":"KS","664":"KS","665":"KS","666":"KS","667":"KS","668":"KS","669":"KS","670":"KS","671":"KS","672":"KS","673":"KS","674":"KS","675":"KS","676":"KS","677":"KS","678":"KS","679":"KS","680":"NE","681":"NE","683":"NE","684":"NE","685":"NE","686":"NE","687":"NE","688":"NE","689":"NE","690":"NE","691":"NE","692":"NE","693":"NE","700":"LA","701":"LA","703":"LA","704":"LA","705":"LA","706":"LA","707":"LA","708":"LA","710":"LA","711":"LA","712":"LA","713":"LA","714":"LA","716":"AR","717":"AR","718":"AR","719":"AR","720":"AR","721":"AR","722":"AR","723":"AR","724":"AR","725":"AR","726":"AR","727":"AR","728":"AR","729":"AR","730":"OK","731":"OK","733":"TX","734":"OK","735":"OK","736":"OK","737":"OK","738":"OK","739":"OK","740":"OK","741":"OK","743":"OK","744":"OK","745":"OK","746":"OK","747":"OK","748":"OK","749":"OK","750":"TX","751":"TX","752":"TX","753":"TX","754":"TX","755":"TX","756":"TX","757":"TX","758":"TX","759":"TX","760":"TX","761":"TX","762":"TX","763":"TX","764":"TX","765":"TX","766":"TX","767":"TX","768":"TX","769":"TX","770":"TX","772":"TX","773":"TX","774":"TX","775":"TX","776":"TX","777":"TX","778":"TX","779":"TX","780":"TX","781":"TX","782":"TX","783":"TX","784":"TX","785":"TX","786":"TX","787":"TX","788":"TX","789":"TX","790":"TX","791":"TX","792":"TX","793":"TX","794":"TX","795":"TX","796":"TX","797":"TX","798":"TX","799":"TX","800":"CO","801":"CO","802":"CO","803":"CO","804":"CO","805":"CO","806":"CO","807":"CO","808":"CO","809":"CO","810":"CO","811":"CO","812":"CO","813":"CO","814":"CO","815":"CO","816":"CO","820":"WY","821":"WY","822":"WY","823":"WY","824":"WY","825":"WY","826":"WY","827":"WY","828":"WY","829":"WY","830":"WY","831":"WY","832":"ID","833":"ID","834":"ID","835":"ID","836":"ID","837":"ID","838":"ID","840":"UT","841":"UT","842":"UT","843":"UT","844":"UT","845":"UT","846":"UT","847":"UT","850":"AZ","851":"AZ","852":"AZ","853":"AZ","855":"AZ","856":"AZ","857":"AZ","859":"AZ","860":"AZ","863":"AZ","864":"AZ","865":"AZ","870":"NM","871":"NM","873":"NM","874":"NM","875":"NM","876":"NM","877":"NM","878":"NM","879":"NM","880":"NM","881":"NM","882":"NM","883":"NM","884":"NM","885":"TX","889":"NV","890":"NV","891":"NV","893":"NV","894":"NV","895":"NV","897":"NV","898":"NV","900":"CA","901":"CA","902":"CA","903":"CA","904":"CA","905":"CA","906":"CA","907":"CA","908":"CA","910":"CA","911":"CA","912":"CA","913":"CA","914":"CA","915":"CA","916":"CA","917":"CA","918":"CA","919":"CA","920":"CA","921":"CA","922":"CA","923":"CA","924":"CA","925":"CA","926":"CA","927":"CA","928":"CA","930":"CA","931":"CA","932":"CA","933":"CA","934":"CA","935":"CA","936":"CA","937":"CA","938":"CA","939":"CA","940":"CA","941":"CA","942":"CA","943":"CA","944":"CA","945":"CA","946":"CA","947":"CA","948":"CA","949":"CA","950":"CA","951":"CA","952":"CA","953":"CA","954":"CA","955":"CA","956":"CA","957":"CA","958":"CA","959":"CA","960":"CA","961":"CA","962":"","963":"","964":"","965":"","967":"HI","968":"HI","969":"MH","970":"OR","971":"OR","972":"OR","973":"OR","974":"OR","975":"OR","976":"OR","977":"OR","978":"OR","979":"OR","980":"WA","981":"WA","982":"WA","983":"WA","984":"WA","985":"WA","986":"WA","988":"WA","989":"WA","990":"WA","991":"WA","992":"WA","993":"WA","994":"WA","995":"AK","996":"AK","997":"AK","998":"AK","999":"AK"};
+
+let stateKey = "oh";
+const STATE_STORE_KEY = "crackpotState";
+function stateGames(){ return STATES[stateKey].games; }
+function stateByAbbr(abbr){
+  for (const [k, s] of Object.entries(STATES)) if (s.abbr === abbr) return {key:k, live:true, name:s.name};
+  const cs = COMING_SOON.find(s => s.abbr === abbr);
+  if (cs) return {key:cs.key, live:false, name:cs.name};
+  return null;
+}
+function setState(key, note){
+  if (!STATES[key]) return;
+  stateKey = key;
+  try { localStorage.setItem(STATE_STORE_KEY, key); } catch(e){}
+  if (!STATES[key].games.includes(game)) game = STATES[key].games[0];
+  $("stateSelect").value = key;
+  buildPills(); renderLatest(); renderCutoff(); renderJackpot(); renderStats(); resetCookie(); renderFreshNote(); renderTagline(); renderMoon();
+  if (note) $("stateNote").textContent = note;
+}
+function resolveZip(){
+  const raw = ($("zipInput").value || "").replace(/\D/g, "");
+  const note = $("stateNote");
+  if (raw.length < 3){ note.textContent = "Enter a ZIP code (5 digits, or just the first 3)."; return; }
+  const abbr = ZIP_STATE[raw.slice(0, 3)];
+  if (!abbr){ note.textContent = "That ZIP didn't match a state — try the dropdown."; return; }
+  if (NO_LOTTERY[abbr]){ note.textContent = NO_LOTTERY[abbr] + " doesn't run a state lottery — pick a state with live data to play."; return; }
+  const st = stateByAbbr(abbr);
+  if (!st){ note.textContent = "That ZIP didn't match a state — try the dropdown."; return; }
+  if (st.live) setState(st.key, "Switched to " + st.name + " 🍀");
+  else note.textContent = st.name + " is coming soon — draw data isn't live yet. Pick a state with live data to play.";
+}
+function renderFreshNote(){
+  const el = $("freshNote");
+  if (!el) return;
+  if (stateKey === "ny") el.textContent = "Live check covers New York's games plus Mega Millions, Powerball & Millionaire for Life (New York open data).";
+  else if (stateKey === "oh") el.textContent = "Live check covers Mega Millions, Powerball & Millionaire for Life (New York open data). Ohio games — Pick 3/4/5, Rolling Cash 5 & Classic Lotto — update with each site rebuild.";
+  else el.textContent = "Live check covers Mega Millions, Powerball & Millionaire for Life (New York open data). " + STATES[stateKey].name + " games update with each site rebuild.";
+}
+function initState(){
+  const sel = $("stateSelect");
+  sel.innerHTML = Object.entries(STATES).map(([k, s]) => `<option value="${k}">${s.name}</option>`).join("") +
+    COMING_SOON.map(s => `<option value="${s.key}" disabled>${s.name} (coming soon)</option>`).join("");
+  let saved = null;
+  try { saved = localStorage.getItem(STATE_STORE_KEY); } catch(e){}
+  if (saved && STATES[saved]) stateKey = saved;
+  if (!STATES[stateKey].games.includes(game)) game = STATES[stateKey].games[0];
+  sel.value = stateKey;
+  sel.onchange = () => setState(sel.value, "Switched to " + STATES[sel.value].name + " 🍀");
+  $("zipBtn").onclick = resolveZip;
+  $("zipInput").addEventListener("keydown", e => { if (e.key === "Enter") resolveZip(); });
+  renderFreshNote();
+}
 const FORTUNES = [
   "A pleasant surprise is waiting for you around the next corner.",
   "You will soon receive good news from someone you have not heard from in a while.",
@@ -273,53 +455,109 @@ const FORTUNES = [
   "Share a lucky moment and it doubles. Hoard it and it fades.",
   "The cookie has spoken. The rest is up to you."
 ];
-let game = "pick3", mode = "blend", win = 100;
+let game = "pick3", mode = "blend", win = 100, avoidCrowd = true;
 const $ = id => document.getElementById(id);
 
 /* ---------- moon phase (a little mythic garnish) ---------- */
-(function(){
+function renderMoon(){
   const synodic = 29.53058867, ref = Date.UTC(2000,0,6,18,14)/86400000;
   const age = ((Date.now()/86400000 - ref) % synodic + synodic) % synodic;
   const names = ["New Moon","Waxing Crescent","First Quarter","Waxing Gibbous","Full Moon","Waning Gibbous","Last Quarter","Waning Crescent"];
   const icons = ["🌑","🌒","🌓","🌔","🌕","🌖","🌗","🌘"];
   const i = Math.floor(age/synodic*8) % 8;
-  $("moonLine").textContent = icons[i] + " " + names[i] + " over Ohio tonight";
-})();
+  $("moonLine").textContent = icons[i] + " " + names[i] + " over " + STATES[stateKey].name + " tonight";
+}
+
+/* ---------- tagline (follows the selected state, same wording) ---------- */
+function renderTagline(){
+  const st = STATES[stateKey];
+  const lead = "A fortune-cookie lottery picker for " + st.name + "'s " + st.games.length + " draw games.";
+  $("tagline").textContent = lead + " Every pick is generated from real draw history — hot numbers, long-overdue numbers, or a blend of both — and served the classic way: a fortune, then your lucky numbers.";
+  document.title = "Crackpot Fortune — a fortune-cookie lottery picker for " + st.name + "'s " + st.games.length + " draw games";
+}
 
 /* ---------- engine ---------- */
-function windowDraws(draws){ return win === 0 ? draws : draws.slice(-win); }
+/* Crypto-grade randomness for the pick paths (Math.random fallback). */
+function randFloat(){
+  try {
+    if (window.crypto && crypto.getRandomValues){
+      const a = new Uint32Array(1);
+      crypto.getRandomValues(a);
+      return a[0] / 4294967296;
+    }
+  } catch(e){}
+  return Math.random();
+}
 
-function statsFor(drawSets, pool){
+/* Draws per day for a game, from its schedule — used to size windows by
+   time span instead of raw draw count. */
+function drawsPerDay(key){
+  const g = GAMES[key];
+  if (!g.sched) return 1;
+  return g.sched.reduce((n, s) => n + s.days.length, 0) / 7;
+}
+/* Effective window for a game: the selected span (30/100 draws at the
+   2-draws-a-day Pick pace) scaled to this game's draw frequency, so
+   every game reads about the same stretch of time. 0 = all draws. */
+function effWin(key){
+  if (win === 0) return 0;
+  return Math.max(10, Math.round(win * drawsPerDay(key) / 2));
+}
+function windowDraws(draws, key){ const n = effWin(key); return n === 0 ? draws : draws.slice(-n); }
+
+/* Expected gap (in draws) between appearances of one value in a pool. */
+function expectedGap(kind, g){
+  if (kind === "digits") return 10;              // 1-in-10 per position
+  if (kind === "bonus") return g.bonusMax;       // 1-in-bonusMax per draw
+  return g.mainMax / (g.drawMain || g.main);      // mainMax/main draws per hit
+  // (drawMain: NY Pick 10 draws 20 numbers per draw, so a number hits
+  // every 80/20 = 4 draws even though a slip plays 10.)
+}
+
+function statsFor(drawSets, pool, halfLife){
   // drawSets: chronological list of draws; each draw is an array of values from this pool.
-  // freq counts appearances; since counts whole draws since the value last appeared.
-  const freq = {}, since = {};
-  pool.forEach(v => { freq[v] = 0; since[v] = drawSets.length; });
-  drawSets.forEach(set => set.forEach(v => { freq[v]++; }));
+  // freq counts appearances (raw); wfreq is the same count with recent
+  // draws weighted more (exponential decay, half-life in draws);
+  // since counts whole draws since the value last appeared.
+  const freq = {}, wfreq = {}, since = {};
+  const n = drawSets.length, hl = halfLife || Math.max(5, Math.floor(n / 4));
+  pool.forEach(v => { freq[v] = 0; wfreq[v] = 0; since[v] = drawSets.length; });
+  drawSets.forEach((set, i) => {
+    const w = Math.pow(0.5, (n - 1 - i) / hl);
+    set.forEach(v => { freq[v]++; wfreq[v] += w; });
+  });
   pool.forEach(v => {
     for (let i = drawSets.length - 1; i >= 0; i--){
       if (drawSets[i].includes(v)){ since[v] = drawSets.length - 1 - i; break; }
     }
   });
-  return {freq, since};
+  return {freq, wfreq, since};
 }
-function scoreMap(pool, st){
-  const maxF = Math.max(1, ...pool.map(v => st.freq[v]));
-  const maxS = Math.max(1, ...pool.map(v => st.since[v]));
+/* Popularity penalty: lotto main numbers 1–31 are the birthday numbers
+   everybody plays. Digits and bonus pools get no per-number penalty. */
+function crowdFactor(v, kind){ return (kind === "main" && v <= 31) ? 0.6 : 1; }
+function scoreMap(pool, st, kind, g){
+  const maxF = Math.max(1e-9, ...pool.map(v => st.wfreq[v]));
+  const gap = expectedGap(kind, g);
   const sc = {};
   pool.forEach(v => {
-    const f = st.freq[v]/maxF, s = st.since[v]/maxS;
-    sc[v] = mode === "hot" ? f : mode === "overdue" ? s : (f + s)/2;
+    const f = st.wfreq[v]/maxF;
+    // Overdue as an absolute ratio: draws-since-last-hit / expected gap,
+    // capped at 3x the expected gap (a number 3x overdue scores 1).
+    const s = Math.min(st.since[v]/gap, 3)/3;
+    const base = mode === "hot" ? f : mode === "overdue" ? s : (f + s)/2;
+    sc[v] = base * (avoidCrowd ? crowdFactor(v, kind) : 1);
   });
   return sc;
 }
 function weightedPick(cands, scores){
   const w = cands.map(v => Math.max(0.05, scores[v]));
-  let total = w.reduce((a,b) => a+b, 0), r = Math.random()*total;
+  let total = w.reduce((a,b) => a+b, 0), r = randFloat()*total;
   for (let i = 0; i < cands.length; i++){ r -= w[i]; if (r <= 0) return cands[i]; }
   return cands[cands.length-1];
 }
-function choose(pool, st, count){
-  const sc = scoreMap(pool, st);
+function choose(pool, st, count, kind, g){
+  const sc = scoreMap(pool, st, kind, g);
   const ranked = [...pool].sort((a,b) => sc[b]-sc[a]);
   const candPool = ranked.slice(0, Math.min(pool.length, count + 6));
   const picked = [];
@@ -328,12 +566,39 @@ function choose(pool, st, count){
     const v = weightedPick(candPool.filter(x => !used.has(x)), sc);
     used.add(v); picked.push(v);
   }
-  return picked.map(v => ({v, freq: st.freq[v], since: st.since[v]}));
+  return picked.map(v => ({v, freq: st.freq[v], since: st.since[v], ratio: st.since[v]/expectedGap(kind, g)}));
 }
 
-function makePick(){
+/* How "crowded" a finished pick is — how much it looks like the slips
+   everybody else is playing. Lower is less crowded. */
+function crowdedScore(mainPicks, g){
+  const vals = mainPicks.map(p => p.v);
+  let s = 0;
+  if (g.kind === "digits"){
+    if (vals.every(v => v === vals[0])) s += 2;                    // 7-7-7
+    const asc = vals.every((v, i) => i === 0 || v === vals[i-1] + 1);
+    const desc = vals.every((v, i) => i === 0 || v === vals[i-1] - 1);
+    if (asc || desc) s += 1;                                       // 1-2-3
+    return s;
+  }
+  const bday = vals.filter(v => v <= 31).length / vals.length;
+  s += bday;                                                        // all-birthday slip = +1
+  const sorted = [...vals].sort((a, b) => a - b);
+  let run = 1, maxRun = 1;
+  for (let i = 1; i < sorted.length; i++){
+    run = sorted[i] === sorted[i-1] + 1 ? run + 1 : 1;
+    maxRun = Math.max(maxRun, run);
+  }
+  if (maxRun >= 3) s += 1;                                         // e.g. 12-13-14 in there
+  const step = sorted[1] - sorted[0];
+  if (step > 0 && sorted.every((v, i) => i === 0 || v - sorted[i-1] === step)) s += 1; // 5-10-15-20-25
+  if (vals.every(v => v % 2 === 0) || vals.every(v => v % 2 === 1)) s += 0.5; // all even / all odd
+  return s;
+}
+
+function buildOnePick(){
   const g = GAMES[game], draws = DATA[game];
-  const wDraws = windowDraws(draws);
+  const wDraws = windowDraws(draws, game);
   const story = {hottest:null, sleepiest:null};
   let mainPicks = [], bonusPick = null;
   const note = (p) => {
@@ -346,7 +611,7 @@ function makePick(){
       const st = statsFor(wDraws.map(d => [d.numbers[pos]]), pool);
       const stAll = statsFor(draws.map(d => [d.numbers[pos]]), pool);
       pool.forEach(v => st.since[v] = stAll.since[v]); // overdue measured on full history
-      const [p] = choose(pool, st, 1);
+      const [p] = choose(pool, st, 1, "digits", g);
       mainPicks.push(p); note(p);
     }
   } else {
@@ -354,22 +619,35 @@ function makePick(){
     const st = statsFor(wDraws.map(d => d.numbers), pool);
     const stAll = statsFor(draws.map(d => d.numbers), pool);
     pool.forEach(v => st.since[v] = stAll.since[v]);
-    mainPicks = choose(pool, st, g.main).sort((a,b) => a.v-b.v);
+    mainPicks = choose(pool, st, g.main, "main", g).sort((a,b) => a.v-b.v);
     mainPicks.forEach(note);
     if (g.bonusMax){
     const bPool = Array.from({length: g.bonusMax}, (_,i) => i+1);
     const bst = statsFor(wDraws.map(d => [d.bonus]), bPool);
     const bstAll = statsFor(draws.map(d => [d.bonus]), bPool);
     bPool.forEach(v => bst.since[v] = bstAll.since[v]);
-    [bonusPick] = choose(bPool, bst, 1);
+    [bonusPick] = choose(bPool, bst, 1, "bonus", g);
     }
   }
   return {mainPicks, bonusPick, story, drawsUsed: wDraws.length};
 }
 
+function makePick(){
+  if (!avoidCrowd) return buildOnePick();
+  // With crowd-avoidance on, roll a few slips and keep the least crowded.
+  let best = null, bestScore = Infinity;
+  for (let i = 0; i < 25; i++){
+    const p = buildOnePick();
+    const s = crowdedScore(p.mainPicks, GAMES[game]);
+    if (s < bestScore){ best = p; bestScore = s; }
+    if (s === 0) break;
+  }
+  return best;
+}
+
 let lastFortune = -1;
 function fortuneFor(){
-  let i = Math.floor(Math.random()*FORTUNES.length);
+  let i = Math.floor(randFloat()*FORTUNES.length);
   if (i === lastFortune) i = (i + 1) % FORTUNES.length;
   lastFortune = i;
   return FORTUNES[i];
@@ -394,22 +672,34 @@ function renderLatest(){
   $("latestLine").innerHTML = `Latest draw · ${fmtDate(last.date)}: <b>${nums}</b> · ${draws.length} draws in the cookie's memory`;
 }
 function buildPills(){
-  $("gamePills").innerHTML = Object.entries(GAMES).map(([k,g]) =>
-    `<button class="pill ${k===game?'on':''}" data-game="${k}">${g.name}</button>`).join("");
+  $("gamePills").innerHTML = stateGames().map(k =>
+    `<button class="pill ${k===game?'on':''}" data-game="${k}">${GAMES[k].name}</button>`).join("");
   document.querySelectorAll("#gamePills .pill").forEach(b =>
-    b.onclick = () => { game = b.dataset.game; buildPills(); renderLatest(); renderCutoff(); resetCookie(); });
+    b.onclick = () => { game = b.dataset.game; buildPills(); renderLatest(); renderCutoff(); renderJackpot(); renderStats(); resetCookie(); });
 }
 const MODE_NOTES = {
   blend: "✨ <b>Destiny Blend</b> — the balanced pick. The cookie mixes numbers that have been hitting often with numbers that are long overdue, so your slip gets a little of both.",
   hot: "🔥 <b>Hot Streak</b> — ride the hot hand. The cookie favors the numbers that have come up most often lately, on the theory that hot numbers stay hot.",
   overdue: "🌙 <b>Long Sleep</b> — wake the sleepers. The cookie favors the numbers that haven't been drawn in the longest time, on the theory that they're due."
 };
+function spanText(key, n){
+  const days = n / drawsPerDay(key);
+  if (days < 45) return Math.round(days) + " days";
+  return (days / 30).toFixed(1) + " months";
+}
 function updateModeNote(){
+  const n = effWin(game);
   const span = mode === "overdue"
-    ? " How long each number has slept is counted across the full history on record."
-    : " Judged from " + (win === 0 ? "the game's full draw history on record" : "the last " + win + " draws") + ".";
+    ? " How long each number has slept is counted across the full history on record. Overdue is measured against how often each number should hit — a number asleep three times its usual gap scores highest."
+    : " Judged from " + (win === 0 ? "the game's full draw history on record" : "the last " + n + " draws (about " + spanText(game, n) + ")") + ".";
   $("modeNote").innerHTML = MODE_NOTES[mode] + span;
 }
+$("crowdToggle").onclick = () => {
+  avoidCrowd = !avoidCrowd;
+  $("crowdToggle").classList.toggle("on", avoidCrowd);
+  $("crowdToggle").setAttribute("aria-pressed", String(avoidCrowd));
+  resetCookie();
+};
 $("modeSeg").querySelectorAll(".pill").forEach(b => b.onclick = () => {
   mode = b.dataset.mode;
   $("modeSeg").querySelectorAll(".pill").forEach(x => x.classList.toggle("on", x===b));
@@ -420,6 +710,7 @@ $("winSeg").querySelectorAll(".pill").forEach(b => b.onclick = () => {
   win = parseInt(b.dataset.win, 10);
   $("winSeg").querySelectorAll(".pill").forEach(x => x.classList.toggle("on", x===b));
   updateModeNote();
+  renderStats();
   resetCookie();
 });
 updateModeNote();
@@ -445,7 +736,7 @@ function crack(){
   $("slipLucky").innerHTML = `<b>Lucky Numbers</b><br>${luckyLine(currentPick)}`;
   const s = currentPick.story;
   $("slipChips").innerHTML =
-    `<span class="chip">🌙 Longest sleeper: ${s.sleepiest.v} · ${s.sleepiest.since} draws</span>` +
+    `<span class="chip">🌙 Longest sleeper: ${s.sleepiest.v} · ${s.sleepiest.since} draws (${s.sleepiest.ratio.toFixed(1)}× overdue)</span>` +
     `<span class="chip">🔥 Hottest: ${s.hottest.v} · ${s.hottest.freq} hits</span>` +
     `<span class="chip">📜 Read from ${currentPick.drawsUsed} draws</span>`;
   // sparkles
@@ -464,6 +755,268 @@ function crack(){
 }
 $("cookieZone").addEventListener("click", crack);
 $("againBtn").onclick = () => { resetCookie(); setTimeout(crack, 60); };
+
+/* ---------- real stats ---------- */
+function renderStats(){
+  const body = $("statsBody");
+  if (!body) return;
+  const g = GAMES[game], draws = DATA[game];
+  const wDraws = windowDraws(draws, game);
+  const n = wDraws.length;
+  let html = `<p class="stats-sub">Observed vs expected for ${g.name}, from the last ${n} draws${win === 0 ? " (full history)" : ""}. "Seen" counts hits in that window; "Expected" is what chance alone would give. "Since" counts draws since the number last hit, across the full history on record; × gap is how many times longer than its usual gap that is.</p>`;
+  const table = (title, rows) => {
+    const trs = rows.map(r =>
+      `<tr><td>${r.v}</td><td>${r.seen}</td><td>${r.exp.toFixed(1)}</td><td>${r.since}</td><td class="${r.ratio >= 2 ? "hot" : ""}">${r.ratio.toFixed(1)}×</td></tr>`).join("");
+    return `<table class="stats-table"><thead><tr><th colspan="5" style="text-align:left">${title}</th></tr><tr><th>Number</th><th>Seen</th><th>Expected</th><th>Since</th><th>× gap</th></tr></thead><tbody>${trs}</tbody></table>`;
+  };
+  const rowsFor = (pool, freq, since, expPerDraw, gap) =>
+    pool.map(v => ({v, seen: freq[v], exp: expPerDraw, since: since[v], ratio: since[v] / gap}));
+  if (g.kind === "digits"){
+    for (let pos = 0; pos < g.positions; pos++){
+      const pool = [0,1,2,3,4,5,6,7,8,9];
+      const st = statsFor(wDraws.map(d => [d.numbers[pos]]), pool);
+      const stAll = statsFor(draws.map(d => [d.numbers[pos]]), pool);
+      pool.forEach(v => st.since[v] = stAll.since[v]);
+      html += table("Position " + (pos + 1), rowsFor(pool, st.freq, st.since, n / 10, 10));
+    }
+  } else {
+    const pool = Array.from({length: g.mainMax}, (_,i) => i+1);
+    const st = statsFor(wDraws.map(d => d.numbers), pool);
+    const stAll = statsFor(draws.map(d => d.numbers), pool);
+    pool.forEach(v => st.since[v] = stAll.since[v]);
+    html += table("Main numbers", rowsFor(pool, st.freq, st.since, n * (g.drawMain || g.main) / g.mainMax, g.mainMax / (g.drawMain || g.main)));
+    if (g.bonusMax){
+      const bPool = Array.from({length: g.bonusMax}, (_,i) => i+1);
+      const bst = statsFor(wDraws.map(d => [d.bonus]), bPool);
+      const bstAll = statsFor(draws.map(d => [d.bonus]), bPool);
+      bPool.forEach(v => bst.since[v] = bstAll.since[v]);
+      html += table(g.bonusName, rowsFor(bPool, bst.freq, bst.since, n / g.bonusMax, g.bonusMax));
+    }
+  }
+  body.innerHTML = html;
+}
+$("statsDetails").addEventListener("toggle", () => { if ($("statsDetails").open) renderStats(); });
+
+/* ---------- jackpot value signal ---------- */
+const JACKPOT_GAMES = {
+  megamillions: {ticket: 5},
+  powerball: {ticket: 2},
+  rollingcash5: {ticket: 1},
+  classiclotto: {ticket: 1}
+};
+function nCr(n, r){
+  if (r < 0 || r > n) return 0;
+  r = Math.min(r, n - r);
+  let out = 1;
+  for (let i = 0; i < r; i++) out = out * (n - i) / (i + 1);
+  return Math.round(out);
+}
+function jackpotOdds(g){
+  const combos = nCr(g.mainMax, g.main);
+  return g.bonusMax ? combos * g.bonusMax : combos;
+}
+/* DATA.jackpots is an optional list of {game, date, amount} — the jackpot
+   on offer for that game's next draw, in dollars. It is not part of the
+   draw-history fetch: no jackpot column exists in the NY open-data feeds
+   or the LotteryUSA archives, so no fetcher writes it. Add entries from
+   a future source (or by hand); with no entry for the current game this
+   line stays hidden. Shape: {"game":"powerball","date":"2026-11-03","amount":500000000} */
+function renderJackpot(){
+  const el = $("jackpotLine");
+  const cfg = JACKPOT_GAMES[game];
+  const entries = (DATA.jackpots || []).filter(j => j.game === game);
+  if (!cfg || !entries.length){ el.hidden = true; el.innerHTML = ""; return; }
+  const latest = entries[entries.length - 1];
+  const g = GAMES[game];
+  const odds = jackpotOdds(g);
+  const ev = latest.amount / odds;
+  const mult = ev / cfg.ticket;
+  const good = ev > cfg.ticket;
+  el.innerHTML = "💰 Jackpot <b>$" + Math.round(latest.amount).toLocaleString("en-US") + "</b> (" + fmtDate(latest.date) + ") · odds 1 in " +
+    odds.toLocaleString("en-US") + " · jackpot-only expected value <b>$" + ev.toFixed(2) + "</b> on a $" + cfg.ticket + " ticket (" + mult.toFixed(2) + "×) — " +
+    (good ? "above the ticket price, so this draw is a comparatively good-value play."
+          : "below the ticket price, so this draw is ordinary value.") +
+    " Before taxes, splits, and lower prizes.";
+  el.hidden = false;
+}
+
+/* ---------- live refresh ---------- */
+/* Fresh draws straight from the public sources, no rebuild needed.
+   The NY Lottery open-data feeds (Socrata) send Access-Control-Allow-Origin: *,
+   so a browser can fetch them directly — that covers the three national
+   games AND New York's own games (Numbers, Win 4, Take 5, Pick 10, NY
+   Lotto). The other states' games have no CORS-friendly JSON feed —
+   LotteryUSA's archive pages send no CORS headers (and no public JSON
+   API exists) — so Pennsylvania, Michigan, Indiana, Kentucky and West
+   Virginia games, like the five Ohio games, stay on the embedded
+   build-time data and update with the next site rebuild. On any failure
+   the app silently keeps the embedded data; the timestamp below always
+   shows the newest draw actually being displayed. */
+/* LIVE spec per game:
+   - bonus: "field" -> bonus = row[field]; bonus: null with a 6-number
+     winning_numbers -> bonus is the 6th number (Powerball).
+   - slots: {midday: "col", evening: "col"} -> two draws per row (NY
+     Numbers / Win 4 / Take 5); digits: N -> the column is a digit string
+     of length N ("745"); otherwise space-separated numbers.
+   - neither -> winning_numbers holds the whole draw (NY Pick 10). */
+const LIVE = {
+  megamillions: {dataset: "5xaw-6ayf", bonus: "mega_ball"},
+  powerball: {dataset: "d6yy-54nr", bonus: null},   // bonus is the 6th number in winning_numbers
+  millionaireforlife: {dataset: "a4w9-a3tp", bonus: "mill_ball"},
+  ny_numbers: {dataset: "d3rz-5njb", slots: {midday: "midday_daily", evening: "evening_daily"}, digits: 3},
+  ny_win4: {dataset: "d3rz-5njb", slots: {midday: "midday_win_4", evening: "evening_win_4"}, digits: 4},
+  ny_take5: {dataset: "dg63-4siq", slots: {midday: "midday_winning_numbers", evening: "evening_winning_numbers"}},
+  ny_pick10: {dataset: "bycu-cw7c"},
+  ny_lotto: {dataset: "6nbc-h7bj", bonus: "bonus"}
+};
+let liveBusy = false, lastCheck = null, lastCheckAdded = 0, lastCheckOk = null;
+
+function newestDate(){
+  let newest = "";
+  Object.values(DATA).forEach(draws => draws.forEach(d => { if (d.date > newest) newest = d.date; }));
+  return newest;
+}
+function fmtTime(d){
+  let h = d.getHours(), m = String(d.getMinutes()).padStart(2, "0");
+  const ap = h >= 12 ? "PM" : "AM"; h = h % 12 || 12;
+  return h + ":" + m + " " + ap;
+}
+function renderFresh(){
+  const newest = newestDate();
+  let txt = "📅 Draws through " + fmtDate(newest);
+  if (lastCheck === null) txt += " · from the last build";
+  else {
+    txt += " · checked " + fmtTime(lastCheck);
+    if (lastCheckOk === false) txt += " — live feed unreachable, last build's data";
+    else if (lastCheckAdded > 0) txt += " — " + lastCheckAdded + " new draw" + (lastCheckAdded > 1 ? "s" : "");
+    else txt += " — up to date";
+  }
+  $("freshLine").textContent = txt;
+  const fb = document.querySelector("#pageFooter b");
+  if (fb) fb.textContent = fmtDate(newest);
+}
+/* Parse one Socrata row into draws: [{date, slot, numbers, bonus}].
+   slot is "only" for single-draw games, "midday"/"evening" for the
+   two-draw NY games. Returns [] when the row has nothing usable. */
+function liveRowDraws(key, row){
+  const g = GAMES[key], cfg = LIVE[key];
+  const date = String(row.draw_date || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return [];
+  const parseNums = (raw) => {
+    if (cfg.digits){
+      const s = String(raw || "").trim();
+      if (s.length !== cfg.digits || !/^\d+$/.test(s)) return null;
+      return [...s].map(Number);
+    }
+    return String(raw || "").trim().split(/\s+/).map(Number);
+  };
+  const valid = (nums, bonus) => {
+    // Digits games count positions; ball games count main numbers
+    // (or drawMain for Pick 10, whose draw holds 20 numbers).
+    const want = g.kind === "digits" ? g.positions : (g.drawMain || g.main);
+    if (!nums || nums.length !== want) return false;
+    if (g.kind === "digits"){
+      if (nums.some(v => !Number.isInteger(v) || v < 0 || v > 9)) return false;
+    } else {
+      if (nums.some(v => !Number.isInteger(v) || v < 1 || v > g.mainMax)) return false;
+      if (new Set(nums).size !== nums.length) return false;
+    }
+    if (g.bonusMax && (!Number.isInteger(bonus) || bonus < 1 || bonus > g.bonusMax)) return false;
+    return true;
+  };
+  if (cfg.slots){
+    const out = [];
+    for (const [slot, col] of Object.entries(cfg.slots)){
+      const nums = parseNums(row[col]);
+      if (valid(nums, null)) out.push({date, slot, numbers: nums, bonus: null});
+    }
+    return out;
+  }
+  const nums = parseNums(row.winning_numbers);
+  let bonus = null;
+  if (cfg.bonus) bonus = Number(row[cfg.bonus]);
+  else if (nums && nums.length === g.main + 1) bonus = nums.pop(); // Powerball: last number is the Powerball
+  if (!valid(nums, bonus)) return [];
+  return [{date, slot: "only", numbers: nums, bonus}];
+}
+/* Merge Socrata rows into a game's stored draws. Newer draws only;
+   a date/slot already on file is never overwritten (embedded data wins
+   a conflict). Returns how many draws were added. */
+function mergeLiveDraws(key, rows){
+  const g = GAMES[key];
+  const draws = DATA[key];
+  const twoSlot = !!LIVE[key].slots;
+  const have = new Set();
+  const seen = {};
+  draws.forEach(d => {
+    const idx = seen[d.date] || 0; seen[d.date] = idx + 1;
+    have.add(d.date + "|" + (twoSlot ? (idx === 0 ? "midday" : "evening") : "only"));
+  });
+  let n = 0;
+  for (const row of rows){
+    for (const dr of liveRowDraws(key, row)){
+      const k = dr.date + "|" + dr.slot;
+      if (have.has(k)) continue;
+      const entry = {date: dr.date, numbers: dr.numbers};
+      if (dr.bonus != null) entry.bonus = dr.bonus;
+      draws.push(entry);
+      have.add(k); n++;
+    }
+  }
+  if (n){
+    // Stable sort by date keeps midday before evening within a date,
+    // because new midday draws are appended before evening ones.
+    draws.sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+    if (draws.length > 400) draws.splice(0, draws.length - 400);
+  }
+  return n;
+}
+/* Fetch the newest draws for the live games (the three national games
+   plus New York's state games). fetchFn is
+   injectable for testing; defaults to the browser's fetch. Never throws:
+   a failed source just contributes 0. Returns {added, ok} — ok is true
+   when at least one source answered. */
+async function fetchLiveDraws(fetchFn){
+  const impl = fetchFn || fetch;
+  const jobs = Object.keys(LIVE).map(async (key) => {
+    const url = "https://data.ny.gov/resource/" + LIVE[key].dataset + ".json?$limit=5&$order=draw_date%20DESC";
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10000);
+    try {
+      const res = await impl(url, {signal: ctrl.signal});
+      if (!res.ok) return {added: 0, ok: false};
+      const rows = await res.json();
+      if (!Array.isArray(rows)) return {added: 0, ok: false};
+      return {added: mergeLiveDraws(key, rows), ok: true};
+    } catch(e){ return {added: 0, ok: false}; }
+    finally { clearTimeout(timer); }
+  });
+  const results = await Promise.all(jobs);
+  return {
+    added: results.reduce((a, r) => a + r.added, 0),
+    ok: results.some(r => r.ok)
+  };
+}
+async function refreshLive(manual){
+  if (liveBusy) return;
+  liveBusy = true;
+  const btn = $("refreshBtn");
+  if (btn){ btn.disabled = true; btn.textContent = "⟳ Checking…"; }
+  let result = {added: 0, ok: false};
+  try { result = await fetchLiveDraws(); }
+  catch(e){ result = {added: 0, ok: false}; }
+  lastCheck = new Date();
+  lastCheckAdded = result.added;
+  lastCheckOk = result.ok;
+  if (result.added > 0){
+    renderLatest(); renderCutoff(); renderJackpot(); renderStats();
+    resetCookie();
+  }
+  renderFresh();
+  if (btn){ btn.disabled = false; btn.textContent = "↻ Refresh draws"; }
+  liveBusy = false;
+}
+$("refreshBtn").onclick = () => refreshLive(true);
 
 /* ---------- cookie jar ---------- */
 function loadJar(){ try { return JSON.parse(localStorage.getItem("crackpotJar") || "[]"); } catch(e){ return []; } }
@@ -528,13 +1081,25 @@ function eligibleDraws(gameKey, savedDate){
   });
   return out;
 }
+/* Win tiers for ball games, generalized from the game's own config
+   (main count, bonus). Identical results for every Ohio game:
+   Rolling Cash 5 (5, no bonus) and Classic Lotto (6, no bonus) fall out
+   of the no-bonus ladder; the national games fall out of the bonus
+   ladder. NY Pick 10 (zeroPays) also pays on 0 of 10. */
 function tierForBalls(gameKey, m, b){
-  if (gameKey === "rollingcash5") return m===5 ? "jackpot" : m===4 ? "big" : m===3 ? "win" : m===2 ? "mini" : null;
-  if (gameKey === "classiclotto") return m===6 ? "jackpot" : m===5 ? "big" : m===4 ? "win" : m===3 ? "mini" : null;
-  if (m === 5) return b ? "jackpot" : "big";
-  if (m === 4) return b ? "big" : "win";
-  if (m === 3) return b ? "win" : "mini";
-  if (m === 2 || m === 1 || m === 0) return b ? "mini" : null;
+  const g = GAMES[gameKey], main = g.main;
+  if (g.bonusMax){
+    if (m === main) return b ? "jackpot" : "big";
+    if (m === main - 1) return b ? "big" : "win";
+    if (m === main - 2) return b ? "win" : "mini";
+    if (m <= main - 3) return b ? "mini" : null;
+    return null;
+  }
+  if (m === main) return "jackpot";
+  if (m === main - 1) return "big";
+  if (m === main - 2) return "win";
+  if (m === main - 3) return "mini";
+  if (g.zeroPays && m === 0) return "mini";
   return null;
 }
 function scoreDraw(slip, d){
@@ -826,30 +1391,36 @@ function renderCutoff(){
       if (!s.days.includes(d.getDay())) return;
       const [dh, dm] = s.draw.split(":").map(Number);
       const draw = new Date(d); draw.setHours(dh, dm, 0, 0);
-      const cut = (d.getDay() === 6 && s.satCutoff) ? s.satCutoff : s.cutoff;
+      // cutoff null means the sales cutoff isn't published for this game
+      // (Kentucky): sales close at the draw itself, and the line says so.
+      const cut = (d.getDay() === 6 && s.satCutoff) ? s.satCutoff : (s.cutoff || s.draw);
       const [ch, cm] = cut.split(":").map(Number);
       const cutoff = new Date(d); cutoff.setHours(ch, cm, 0, 0);
-      inst.push({draw, cutoff, label: s.label || ""});
+      inst.push({draw, cutoff, label: s.label || "", cutoffKnown: !!s.cutoff});
     });
   }
   inst.sort((a,b) => a.draw - b.draw);
   const nxt = inst.find(i => i.draw > now);
   if (!nxt){ el.textContent = ""; return; }
   const pre = nxt.label ? nxt.label + " draw " : "Draw ";
+  const stateName = STATES[stateKey].name;
+  const cutoffNote = nxt.cutoffKnown ? "" : " · cutoff time not published";
   if (now < nxt.cutoff){
-    el.innerHTML = "🎟️ " + pre + "<b>" + dayWord(nxt.draw, now) + " " + fmtClock(nxt.draw) + "</b> · Ohio tickets until <b>" +
-      fmtClock(nxt.cutoff) + "</b> — <b>" + fmtLeft(nxt.cutoff - now) + " left</b>";
+    el.innerHTML = "🎟️ " + pre + "<b>" + dayWord(nxt.draw, now) + " " + fmtClock(nxt.draw) + "</b> · " + stateName + " tickets until <b>" +
+      fmtClock(nxt.cutoff) + "</b> — <b>" + fmtLeft(nxt.cutoff - now) + " left</b>" + cutoffNote;
   } else {
     const after = inst.find(i => i.draw > nxt.draw);
     let tail = "";
     if (after) tail = " · next: " + (after.label ? after.label + " " : "") + dayWord(after.draw, now) + " " +
       fmtClock(after.draw) + ", tickets until " + fmtClock(after.cutoff);
-    el.innerHTML = "🔒 Sales closed for the " + dayWord(nxt.draw, now) + " " + fmtClock(nxt.draw) + " draw" + tail;
+    el.innerHTML = "🔒 Sales closed for the " + dayWord(nxt.draw, now) + " " + fmtClock(nxt.draw) + " draw" + tail + cutoffNote;
   }
 }
 setInterval(renderCutoff, 30000);
 
-buildPills(); renderLatest(); renderCutoff(); renderJar();
+initState();
+renderTagline(); renderMoon();
+buildPills(); renderLatest(); renderCutoff(); renderJackpot(); renderStats(); renderJar(); renderFresh(); refreshLive(false);
 
 /* On load: if a saved slip has a win that hasn't been celebrated yet,
    throw the party for the single best one. */
