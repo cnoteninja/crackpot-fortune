@@ -1048,11 +1048,15 @@ function jackpotOdds(g){
   return g.bonusMax ? combos * g.bonusMax : combos;
 }
 /* DATA.jackpots is an optional list of {game, date, amount} — the jackpot
-   on offer for that game's next draw, in dollars. It is not part of the
-   draw-history fetch: no jackpot column exists in the NY open-data feeds
-   or the LotteryUSA archives, so no fetcher writes it. Add entries from
-   a future source (or by hand); with no entry for the current game this
-   line stays hidden. Shape: {"game":"powerball","date":"2026-11-03","amount":500000000} */
+   on offer for that game's next draw, in dollars. Written by the Mega
+   Millions fast lane in fetch_draws.py from megamillions.com's
+   GetLatestDrawData (amount = NextPrizePool). The date is the latest
+   draw's date — the draw that set that jackpot — NOT the next draw's
+   date: every newest-date computation takes the max over all dates in
+   draws.json, so a future-dated entry would misreport the data as
+   current through a draw that hasn't happened yet. With no entry for the
+   current game this line stays hidden. Shape:
+   {"game":"megamillions","date":"2026-11-03","amount":505000000} */
 function renderJackpot(){
   const el = $("jackpotLine");
   const cfg = JACKPOT_GAMES[game];

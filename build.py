@@ -25,11 +25,18 @@ def _asset_b64(bin_name, b64_name):
     return ''.join((ROOT / b64_name).read_text().split())
 
 
+def newest_draw_date(data):
+    """Newest draw date across all games. A 'jackpots' entry (if any)
+    carries the latest draw's date by construction — the draw that set
+    that jackpot — so it can never push this past the newest real draw."""
+    return max(d['date'] for draws in data.values() for d in draws)
+
+
 def main():
     t = (ROOT / 'app-template.html').read_text()
     data = json.loads((ROOT / 'data' / 'draws.json').read_text())
 
-    newest = max(d['date'] for draws in data.values() for d in draws)
+    newest = newest_draw_date(data)
     y, m, dd = newest.split('-')
     pretty = date(int(y), int(m), int(dd)).strftime('%b %-d, %Y')
     t, n = re.subn(r'Draw history through <b>[^<]*</b>',
@@ -72,7 +79,7 @@ def main():
     standalone = Path.home() / 'workspace' / 'your_files' / 'crackpot-fortune.html'
     if standalone.parent.exists():
         standalone.write_text(t)
-    counts = {k: len(v) for k, v in data.items()}
+    counts = {k: len(v) for k, v in data.items() if k != 'jackpots'}
     print(f'built OK; data through {newest}; draws per game: {counts}')
 
 if __name__ == '__main__':

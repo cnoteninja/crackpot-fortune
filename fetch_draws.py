@@ -8,6 +8,15 @@ Sources:
   - Mega Millions / Powerball / Millionaire for Life: NY Lottery open data
     (Socrata JSON API on data.ny.gov) — the same official datasets the
     stored history was built from.
+  - Mega Millions fast lane (Nov 2026): the official site's own results
+    service, GET megamillions.com/cmspages/utilservice.asmx/GetLatestDrawData
+    (JSON wrapped in an XML <string> envelope, no key). It publishes the
+    latest draw ~8 minutes after the 11 PM draw; Socrata lags ~a day.
+    Pipeline-only — the endpoint sends no CORS headers, so the in-app
+    live refresh stays on Socrata. Socrata remains the history/backfill
+    source; the fast lane only ever carries the LATEST draw and is
+    merged with the same keyed-union + conflict rules as every source.
+    It also carries the next jackpot, which populates DATA.jackpots.
   - Pick 3/4/5, Rolling Cash 5, Classic Lotto: LotteryUSA Ohio year-archive
     pages (structured HTML draw cards), parsed deterministically.
   - Phase 2 (Nov 2026): New York state games via the same NY Lottery
@@ -591,6 +600,100 @@ def fetch_socrata(game, last_date):
     return out
 
 
+# Mega Millions fast lane (Nov 2026): the official site's own results
+# service publishes the latest draw ~8 minutes after the 11 PM draw;
+# the NY Socrata dataset lags ~a day. Pipeline-only — the endpoint
+# sends no CORS headers, so the in-app live refresh stays on Socrata.
+MM_FASTLANE_URL = 'https://www.megamillions.com/cmspages/utilservice.asmx/GetLatestDrawData'
+
+def fetch_mm_fastlane():
+    """Latest Mega Millions draw + next jackpot from megamillions.com.
+    Returns (draw_entry|None, jackpot_entry|None). Any failure — HTTP
+    error, timeout, malformed XML/JSON, missing or invalid fields —
+    returns (None, None); the Socrata path remains the source of record.
+    The draw is validated with the same validate() as every other source.
+    Jackpot shape matches the template's DATA.jackpots reader:
+    {game, date, amount} where amount is the NEXT draw's advertised
+    jackpot (NextPrizePool) and date is the latest draw's date — the draw
+    that set that jackpot. The date is deliberately NOT the next draw's
+    date: every newest-date computation in the codebase (build.py, this
+    file's summary, the Actions workflow's commit message, the app's
+    newestDate()) takes the max over all dates in draws.json, so a
+    future-dated jackpot entry would misreport the data as current
+    through a draw that hasn't happened yet."""
+    try:
+        resp = requests.get(MM_FASTLANE_URL, headers=UA, timeout=TIMEOUT)
+        resp.raise_for_status()
+        m = re.search(r'<string[^>]*>(.*?)</string>', resp.text, re.S)
+        if not m:
+            return None, None
+        payload = json.loads(m.group(1))
+        drawing = payload.get('Drawing')
+        if not isinstance(drawing, dict):
+            return None, None
+        play_date = drawing.get('PlayDate')
+        if (not isinstance(play_date, str)
+                or not re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}', play_date)):
+            return None, None
+        date = play_date[:10]
+        # Guard against a garbled or future-dated feed response.
+        if date > datetime.now().strftime('%Y-%m-%d'):
+            return None, None
+        nums = [drawing.get(f'N{i}') for i in range(1, 6)]
+        bonus = drawing.get('MBall')
+        if any(not isinstance(n, int) or isinstance(n, bool) for n in nums):
+            return None, None
+        if not isinstance(bonus, int) or isinstance(bonus, bool):
+            return None, None
+        err = validate('megamillions', nums, bonus)
+        if err:
+            return None, None
+        draw = {'date': date, 'numbers': sorted(nums), 'bonus': bonus}
+        jackpot = None
+        jackpot_obj = payload.get('Jackpot')
+        if isinstance(jackpot_obj, dict):
+            amount = jackpot_obj.get('NextPrizePool')
+            if isinstance(amount, (int, float)) and not isinstance(amount, bool) and amount > 0:
+                jackpot = {'game': 'megamillions', 'date': date, 'amount': int(amount)}
+        return draw, jackpot
+    except Exception:
+        return None, None
+
+
+def apply_mm_fastlane(data, added):
+    """Merge the fast lane into data (in place). Returns
+    (jackpot_changed, error). error is non-None only on a genuine draw
+    conflict with stored data (hard error); every other fast-lane
+    failure is swallowed here and returns (False, None)."""
+    try:
+        mm_draw, mm_jackpot = fetch_mm_fastlane()
+    except Exception:
+        return False, None
+    jackpot_changed = False
+    if mm_draw is not None:
+        stored_mm = data.get('megamillions', [])
+        latest_stored = stored_mm[-1]['date'] if stored_mm else ''
+        try:
+            merged, n = merge_simple('megamillions', stored_mm,
+                                     {mm_draw['date']: {'numbers': mm_draw['numbers'],
+                                                       'bonus': mm_draw.get('bonus')}})
+        except ValueError as e:
+            return False, str(e)
+        if n:
+            data['megamillions'] = merged
+            added['megamillions'] = added.get('megamillions', 0) + n
+        # Jackpot: only trust the feed when it is at least as fresh as
+        # our stored draws, so a stale feed can never overwrite a newer
+        # jackpot entry.
+        if mm_jackpot is not None and mm_draw['date'] >= latest_stored:
+            current = [j for j in data.get('jackpots', []) if j.get('game') == 'megamillions']
+            if not current or current[0] != mm_jackpot:
+                data['jackpots'] = [j for j in data.get('jackpots', []) if j.get('game') != 'megamillions']
+                data['jackpots'].append(mm_jackpot)
+                jackpot_changed = True
+    return jackpot_changed, None
+
+
 def fetch_socrata_slots(game, since):
     """Socrata datasets with one row per date and separate midday/evening
     columns (NY Numbers / Win 4 / Take 5). Returns slot maps like the
@@ -780,16 +883,23 @@ def main():
         except Exception as e:
             errors.append(str(e))
 
+    # Mega Millions fast lane (official site, minutes after the draw).
+    # Only a genuine conflict with stored data is a hard error; every
+    # other fast-lane failure is swallowed inside apply_mm_fastlane.
+    jackpot_changed, mm_err = apply_mm_fastlane(data, added)
+    if mm_err:
+        errors.append(mm_err)
+
     if errors:
         fail('; '.join(errors))
 
-    if added:
+    if added or jackpot_changed:
         tmp = DATA_PATH.with_suffix('.json.tmp')
         tmp.write_text(json.dumps(data, separators=(',', ':')))
         tmp.replace(DATA_PATH)
 
     through = max(d['date'] for draws in data.values() for d in draws)
-    print(json.dumps({'status': 'updated' if added else 'nochange',
+    print(json.dumps({'status': 'updated' if (added or jackpot_changed) else 'nochange',
                       'added': added, 'through': through}))
 
 
