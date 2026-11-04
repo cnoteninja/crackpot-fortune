@@ -257,7 +257,7 @@
   </section>
 
   <footer id="pageFooter">
-    Draw history through <b>Nov 3, 2026</b> — Ohio Pick 3/4/5, Rolling Cash 5 &amp; Classic Lotto via LotteryUSA's results archive; Mega Millions, Powerball &amp; Millionaire for Life and New York's Numbers, Win 4, Take 5, Pick 10 &amp; NY Lotto via New York Lottery open data; all other states' games, Lotto America and the Tri-State games via LotteryUSA's results archive.<br>
+    Draw history through <b>Nov 3, 2026</b> — <span id="footerSources">Pick 3, Pick 4, Pick 5, Rolling Cash 5 &amp; Classic Lotto via LotteryUSA's results archive; Mega Millions, Powerball &amp; Millionaire for Life via New York Lottery open data.</span><br>
     The honest print: every draw is independent and no cookie, however charming, can predict one. Crackpot Fortune reads patterns for the joy of it. Play for fun, never with money you need.
   </footer>
 </div>
@@ -584,7 +584,7 @@ function setState(key, note){
   try { localStorage.setItem(STATE_STORE_KEY, key); } catch(e){}
   if (!STATES[key].games.includes(game)) game = STATES[key].games[0];
   $("stateSelect").value = key;
-  buildPills(); renderLatest(); renderCutoff(); renderJackpot(); renderStats(); resetCookie(); renderFreshNote(); renderTagline(); renderMoon();
+  buildPills(); renderLatest(); renderCutoff(); renderJackpot(); renderStats(); resetCookie(); renderFreshNote(); renderTagline(); renderMoon(); renderFooter();
   if (note) $("stateNote").textContent = note;
 }
 function resolveZip(){
@@ -605,6 +605,36 @@ function renderFreshNote(){
   if (stateKey === "ny") el.textContent = "Live check covers New York's games plus Mega Millions, Powerball & Millionaire for Life (New York open data).";
   else if (stateKey === "oh") el.textContent = "Live check covers Mega Millions, Powerball & Millionaire for Life (New York open data). Ohio games — Pick 3/4/5, Rolling Cash 5 & Classic Lotto — update with each site rebuild.";
   else el.textContent = "Live check covers Mega Millions, Powerball & Millionaire for Life (New York open data). " + STATES[stateKey].name + " games update with each site rebuild.";
+}
+/* ---------- footer (sources + newest-draw date follow the selected state) ---------- */
+/* Games served by the New York Lottery open-data feed; everything else
+   comes from LotteryUSA's results archive. Mirrors fetch_draws.py. */
+const NY_OPEN_DATA = new Set(["megamillions","powerball","millionaireforlife","ny_numbers","ny_win4","ny_take5","ny_pick10","ny_lotto"]);
+function shortGameName(key){
+  if (key === "ny_lotto") return "NY Lotto"; /* "Lotto" alone is too generic */
+  return GAMES[key].name.replace(/^(Ohio|NY|[A-Z]{2}) /, "");
+}
+function joinNames(arr){
+  if (arr.length === 1) return arr[0];
+  if (arr.length === 2) return arr[0] + " & " + arr[1];
+  return arr.slice(0, -1).join(", ") + " & " + arr[arr.length - 1];
+}
+function renderFooter(){
+  const games = stateGames();
+  const lusa = [], ny = [];
+  let newest = "";
+  for (const k of games){
+    for (const d of (DATA[k] || [])) if (d.date > newest) newest = d.date;
+    (NY_OPEN_DATA.has(k) ? ny : lusa).push(shortGameName(k));
+  }
+  const b = document.querySelector("#pageFooter b");
+  if (b && newest) b.textContent = fmtDate(newest);
+  const s = $("footerSources");
+  if (!s) return;
+  const parts = [];
+  if (lusa.length) parts.push(joinNames(lusa) + " via LotteryUSA's results archive");
+  if (ny.length) parts.push(joinNames(ny) + " via New York Lottery open data");
+  s.textContent = parts.join("; ") + ".";
 }
 function initState(){
   const sel = $("stateSelect");
@@ -1660,7 +1690,7 @@ function renderCutoff(){
 setInterval(renderCutoff, 30000);
 
 initState();
-renderTagline(); renderMoon();
+renderTagline(); renderMoon(); renderFooter();
 buildPills(); renderLatest(); renderCutoff(); renderJackpot(); renderStats(); renderJar(); renderFresh(); refreshLive(false);
 
 /* On load: if a saved slip has a win that hasn't been celebrated yet,
