@@ -83,9 +83,10 @@
   .cracked .spark{animation:sparkle 1.1s ease-out forwards}
   @keyframes sparkle{0%{opacity:0; transform:scale(.3) translateY(6px)}35%{opacity:1}100%{opacity:0; transform:scale(1.25) translateY(-16px)}}
   .actions{display:flex; gap:10px; margin-top:14px}
-  button.act{flex:1; border:none; border-radius:12px; padding:13px 10px; font-size:.98rem; font-weight:700; cursor:pointer}
+  button.act{flex:1; border:none; border-radius:12px; padding:13px 10px; font-size:.98rem; font-weight:700; cursor:pointer; white-space:nowrap}
   .again{background:#ffffff14; color:var(--ink); border:1px solid var(--line) !important}
   .keep{background:var(--gold); color:#241a05}
+  .share{background:#ffffff14; color:var(--ink); border:1px solid var(--line) !important}
   button.act:active{transform:scale(.98)}
   /* jar */
   .jar-item{background:#ffffff0d; border:1px solid #ffffff1c; border-radius:12px; padding:10px 12px; margin-bottom:9px}
@@ -97,6 +98,8 @@
   .jar-del{background:none; border:none; color:#ff9d85; font-size:.78rem; cursor:pointer; padding:2px 0}
   .jar-item.winner{border-color:var(--gold); background:linear-gradient(180deg,#f2c14e26,#ffffff0d); box-shadow:0 0 14px #f2c14e44}
   .jar-badge{color:var(--gold); font-weight:700; font-size:.9rem; margin-top:4px}
+  .jar-best{color:var(--gold); opacity:.85; font-size:.88rem; margin-top:4px}
+  .jar-none{opacity:.6; font-size:.85rem; margin-top:4px}
   .jar-replay{background:none; border:1px solid var(--line); color:var(--gold); border-radius:999px; font-size:.78rem; padding:4px 10px; cursor:pointer; margin:6px 8px 0 0}
   .jar-check{width:100%; background:#f2c14e1a; border:1px solid var(--gold); color:var(--gold); border-radius:12px; padding:11px; font-size:.95rem; font-weight:700; cursor:pointer; margin-bottom:4px}
   .jar-check:active{transform:scale(.99)}
@@ -231,6 +234,7 @@
     <div class="actions">
       <button class="act again" id="againBtn">🥠 Crack another</button>
       <button class="act keep" id="keepBtn">Keep this slip</button>
+      <button class="act share" id="shareBtn">📤 Share this slip</button>
     </div>
     <p class="fair-note">Every draw is independent — hot, cold, and overdue are stories about the past, not predictions. These picks are for fun.</p>
   </section>
@@ -243,7 +247,7 @@
   </section>
 
   <section class="card">
-    <p class="lbl">🍪 Your cookie jar — saved slips</p>
+    <p class="lbl">🍪 My cookies — saved slips</p>
     <button class="jar-check" id="checkWinsBtn">Check my slips for wins 🎉</button>
     <p class="jar-status" id="jarStatus"></p>
     <div id="jarList"></div>
@@ -1302,6 +1306,9 @@ async function refreshLive(manual){
 $("refreshBtn").onclick = () => refreshLive(true);
 
 /* ---------- cookie jar ---------- */
+/* My cookies: saved slips persist in localStorage across visits (unlike
+   the session-only pick memory). Capped at JAR_MAX — oldest drops off. */
+const JAR_MAX = 20;
 function loadJar(){ try { return JSON.parse(localStorage.getItem("crackpotJar") || "[]"); } catch(e){ return []; } }
 function saveJar(j){ localStorage.setItem("crackpotJar", JSON.stringify(j)); }
 /* ---------- win checking ---------- */
@@ -1422,19 +1429,63 @@ function describeMatch(w){
   if (w.bonusMatch) txt = txt ? `${txt} + the ${g.bonusName}` : `matched the ${g.bonusName}`;
   return txt || "a winning match";
 }
+/* Best non-winning match for a slip: the eligible draw it came closest
+   on — most main numbers, then the bonus, then the latest draw. Digits
+   count positions that match in place. Null when no draw has happened
+   since the slip was saved. (Tier wins are shown separately as the
+   WINNER badge via checkSlip.) */
+function bestMatch(slip){
+  if (!slip || !GAMES[slip.game]) return null;
+  const g = GAMES[slip.game];
+  let best = null;
+  for (const d of eligibleDraws(slip.game, slip.savedDate)){
+    let mainMatches, bonusMatch = false;
+    if (g.kind === "digits"){
+      mainMatches = slip.main.filter((v, i) => v === d.numbers[i]).length;
+    } else {
+      const set = new Set(d.numbers);
+      mainMatches = slip.main.filter(v => set.has(v)).length;
+      bonusMatch = slip.bonus != null && d.bonus != null && slip.bonus === d.bonus;
+    }
+    const score = mainMatches * 2 + (bonusMatch ? 1 : 0);
+    if (!best || score > best.score || (score === best.score && d.date > best.drawDate))
+      best = {score, mainMatches, bonusMatch, drawDate: d.date, drawNumbers: d.numbers.slice(), drawBonus: (d.bonus != null ? d.bonus : null)};
+  }
+  return best;
+}
+function describeBest(gameKey, b){
+  const g = GAMES[gameKey];
+  if (!g) return "a close match";
+  if (g.kind === "digits") return "matched " + b.mainMatches + " of " + g.positions + " digits in place";
+  let txt = "matched " + b.mainMatches + " of " + g.main;
+  if (b.bonusMatch) txt += " + the " + g.bonusName;
+  return txt;
+}
 function fmtDay(iso){
   return new Date(iso + "T12:00:00").toLocaleDateString("en-US", {weekday:"short", month:"short", day:"numeric"});
 }
-/* Recompute an entry's win against current draw data; cache on the entry. */
+/* Recompute an entry's win and best-match against current draw data;
+   cache both on the entry. Returns true if anything changed. */
 function refreshWinInfo(s){
   const slip = normalizeSlip(s);
   const res = slip ? checkSlip(slip) : null;
   const key = res ? [res.tier, res.drawDate, res.drawNumbers.join(","), res.drawBonus == null ? "" : res.drawBonus].join("|") : null;
   const curKey = s.winInfo ? s.winInfo.key : null;
-  if (key === curKey) return false;
-  if (res) s.winInfo = { ...res, key, game: slip.game, slipMain: slip.main, slipBonus: slip.bonus, celebrated: false };
-  else delete s.winInfo;
-  return true;
+  let dirty = false;
+  if (key !== curKey){
+    if (res) s.winInfo = { ...res, key, game: slip.game, slipMain: slip.main, slipBonus: slip.bonus, celebrated: false };
+    else delete s.winInfo;
+    dirty = true;
+  }
+  const best = slip ? bestMatch(slip) : null;
+  const bKey = best ? [best.mainMatches, best.bonusMatch ? 1 : 0, best.drawDate].join("|") : null;
+  const curBKey = s.bestInfo ? s.bestInfo.key : null;
+  if (bKey !== curBKey){
+    if (best) s.bestInfo = { mainMatches: best.mainMatches, bonusMatch: best.bonusMatch, drawDate: best.drawDate, game: slip.game, key: bKey };
+    else delete s.bestInfo;
+    dirty = true;
+  }
+  return dirty;
 }
 
 function renderJar(){
@@ -1445,12 +1496,16 @@ function renderJar(){
   if (!jar.length){ $("jarList").innerHTML = `<p class="empty">No slips saved yet. Crack a cookie, then keep the ones that feel lucky.</p>`; return; }
   $("jarList").innerHTML = jar.map((s, i) => {
     const w = s.winInfo;
+    const best = (!w && s.bestInfo) ? s.bestInfo : null;
+    const noDraws = !w && !s.bestInfo && normalizeSlip(s);
     return `
     <div class="jar-item${w ? " winner" : ""}">
       <div class="jar-top"><span class="jar-game">${s.gameName}</span><span class="jar-date">${s.when}</span></div>
       <div class="jar-fortune">“${s.fortune}”</div>
       <div class="jar-nums">Lucky Numbers: ${s.label}</div>
       ${w ? `<div class="jar-badge">🏆 WINNER — ${describeMatch(w)} · ${fmtDay(w.drawDate)}</div>` : ""}
+      ${best ? `<div class="jar-best">Closest so far: ${describeBest(best.game, best)} · ${fmtDay(best.drawDate)}</div>` : ""}
+      ${noDraws ? `<div class="jar-none">No draws since you saved this — check back after the next draw.</div>` : ""}
       ${w ? `<button class="jar-replay" data-i="${i}">🎉 Replay celebration</button>` : ""}
       <button class="jar-del" data-i="${i}">remove</button>
     </div>`;
@@ -1635,10 +1690,182 @@ $("keepBtn").onclick = () => {
     fortune: $("slipFortune").textContent,
     when: new Date().toLocaleDateString("en-US", {month:"short", day:"numeric"}) + ", " +
           new Date().toLocaleTimeString("en-US", {hour:"numeric", minute:"2-digit"}) });
+  if (jar.length > JAR_MAX) jar.length = JAR_MAX; // cap: oldest slips drop off
   saveJar(jar); renderJar();
   $("keepBtn").textContent = "Kept! ✓";
   setTimeout(() => $("keepBtn").textContent = "Keep this slip", 1200);
 };
+
+/* ---------- shareable cookie card ---------- */
+/* One tap turns the current slip into a 1080x1350 (4:5) image — the
+   ratio Instagram likes — drawn on a canvas in the app's own palette
+   (indigo night, gold, paper slip). drawShareCard is pure canvas 2D
+   calls so tests can run it against a stub context; shareSlip wires it
+   to the Web Share sheet (iOS Safari shares the PNG file directly) with
+   a PNG download fallback. Never shows a dollar amount. */
+const SHARE_W = 1080, SHARE_H = 1350;
+function roundRectPath(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function wrapText(ctx, text, maxWidth){
+  const words = String(text).split(/\s+/);
+  const lines = [];
+  let line = "";
+  for (const w of words){
+    const test = line ? line + " " + w : w;
+    if (ctx.measureText(test).width > maxWidth && line){ lines.push(line); line = w; }
+    else line = test;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+function drawShareBall(ctx, cx, cy, r, v, isBonus, isDigit){
+  if (isDigit) roundRectPath(ctx, cx - r, cy - r, r * 2, r * 2, 12);
+  else { ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); }
+  const grad = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.35, r * 0.1, cx, cy, r);
+  if (isBonus){ grad.addColorStop(0, "#ffb59d"); grad.addColorStop(0.58, "#e4572e"); grad.addColorStop(1, "#b23a17"); }
+  else { grad.addColorStop(0, "#ffe9a8"); grad.addColorStop(0.58, "#f2c14e"); grad.addColorStop(1, "#c9932b"); }
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.fillStyle = isBonus ? "#fff" : "#2a1c05";
+  ctx.font = "800 " + Math.round(r * 0.9) + "px -apple-system, 'Segoe UI', sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(String(v), cx, cy + 2);
+}
+function drawShareCard(ctx, opts){
+  const W = SHARE_W, H = SHARE_H;
+  const g = GAMES[opts.game];
+  // night-sky background + stars (fixed seed so the card looks the same
+  // every render)
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#120e2e"); bg.addColorStop(0.55, "#1d1440"); bg.addColorStop(1, "#241a4d");
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  let seed = 42;
+  const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+  for (let i = 0; i < 70; i++){
+    ctx.fillStyle = "rgba(255,255,255," + (0.25 + rnd() * 0.5).toFixed(2) + ")";
+    ctx.beginPath();
+    ctx.arc(rnd() * W, rnd() * H * 0.55, 1 + rnd() * 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#f2c14e";
+  ctx.font = "700 62px Georgia, 'Times New Roman', serif";
+  ctx.fillText("🥠 Crackpot Fortune", W / 2, 120);
+  ctx.font = "30px -apple-system, 'Segoe UI', sans-serif";
+  try { ctx.letterSpacing = "6px"; } catch(e){}
+  ctx.fillText(g.name.toUpperCase(), W / 2, 185);
+  try { ctx.letterSpacing = "0px"; } catch(e){}
+  // paper slip
+  const slip = {x: 90, y: 240, w: 900, h: 640};
+  const paper = ctx.createLinearGradient(0, slip.y, 0, slip.y + slip.h);
+  paper.addColorStop(0, "#fdf3da"); paper.addColorStop(1, "#f7ead1");
+  roundRectPath(ctx, slip.x, slip.y, slip.w, slip.h, 18);
+  ctx.fillStyle = paper; ctx.fill();
+  // fortune, centered in the slip above the balls
+  ctx.fillStyle = "#4a3419";
+  ctx.font = "italic 46px Georgia, 'Times New Roman', serif";
+  const lines = wrapText(ctx, "“" + opts.fortune + "”", slip.w - 120);
+  const lh = 62, textH = lines.length * lh;
+  let y = slip.y + (slip.h - 170 - textH) / 2 + 46;
+  lines.forEach(ln => { ctx.fillText(ln, W / 2, y); y += lh; });
+  // balls row near the bottom of the slip
+  const ballR = 38, gap = 16;
+  const items = opts.mainPicks.map(p => ({kind: "ball", v: p.v, bonus: false}));
+  if (opts.bonusPick) items.push({kind: "plus"}, {kind: "ball", v: opts.bonusPick.v, bonus: true});
+  const widthOf = it => it.kind === "ball" ? ballR * 2 : 28;
+  const totalW = items.reduce((a, it) => a + widthOf(it), 0) + (items.length - 1) * gap;
+  let bx = (W - totalW) / 2;
+  const by = slip.y + slip.h - 78;
+  items.forEach(it => {
+    if (it.kind === "plus"){
+      ctx.fillStyle = "#8a6a25";
+      ctx.font = "700 44px Georgia, 'Times New Roman', serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("+", bx + 14, by);
+      bx += 28 + gap;
+    } else {
+      drawShareBall(ctx, bx + ballR, by, ballR, it.v, it.bonus, g.kind === "digits");
+      bx += ballR * 2 + gap;
+    }
+  });
+  // lucky-numbers line, date, URL, honest print
+  ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#f5eeda";
+  ctx.font = "32px -apple-system, 'Segoe UI', sans-serif";
+  let nums = opts.mainPicks.map(p => p.v).join(" – ");
+  if (opts.bonusPick) nums += "  +  " + g.bonusName + " " + opts.bonusPick.v;
+  ctx.fillText("Lucky Numbers: " + nums, W / 2, 960);
+  ctx.globalAlpha = 0.8;
+  ctx.font = "30px -apple-system, 'Segoe UI', sans-serif";
+  ctx.fillText("Your cookie for " + opts.dateStr, W / 2, 1025);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#f2c14e";
+  ctx.font = "700 32px -apple-system, 'Segoe UI', sans-serif";
+  ctx.fillText("cnoteninja.github.io/crackpot-fortune", W / 2, 1100);
+  ctx.globalAlpha = 0.65;
+  ctx.fillStyle = "#f5eeda";
+  ctx.font = "26px -apple-system, 'Segoe UI', sans-serif";
+  ctx.fillText("Every draw is independent — picks are for fun.", W / 2, 1165);
+  ctx.globalAlpha = 1;
+  ctx.font = "64px Georgia, 'Times New Roman', serif";
+  ctx.fillText("🍪", W / 2, 1260);
+}
+function renderShareCardBlob(pick){
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = SHARE_W; canvas.height = SHARE_H;
+    const ctx = canvas.getContext("2d");
+    if (!ctx){ reject(new Error("no 2d context")); return; }
+    const d = new Date();
+    const iso = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    drawShareCard(ctx, {game, fortune: $("slipFortune").textContent,
+      mainPicks: pick.mainPicks, bonusPick: pick.bonusPick, dateStr: fmtDate(iso)});
+    if (canvas.toBlob) canvas.toBlob(b => b ? resolve(b) : reject(new Error("toBlob empty")), "image/png");
+    else reject(new Error("toBlob unsupported"));
+  });
+}
+function downloadBlob(blob, name){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+async function shareSlip(){
+  if (!currentPick){ crack(); if (!currentPick) return; }
+  const btn = $("shareBtn");
+  if (btn){ btn.disabled = true; btn.textContent = "Making your card…"; }
+  let shared = false, saved = false;
+  let blob = null;
+  try { blob = await renderShareCardBlob(currentPick); } catch(e){}
+  if (blob){
+    const file = new File([blob], "crackpot-fortune.png", {type: "image/png"});
+    try {
+      if (typeof navigator !== "undefined" && navigator.canShare && navigator.canShare({files: [file]})){
+        await navigator.share({files: [file], title: "Crackpot Fortune", text: "My " + GAMES[game].name + " fortune cookie"});
+        shared = true;
+      } else {
+        downloadBlob(blob, "crackpot-fortune.png");
+        saved = true;
+      }
+    } catch(e){
+      if (!e || e.name !== "AbortError"){ downloadBlob(blob, "crackpot-fortune.png"); saved = true; }
+    }
+  }
+  if (btn){
+    btn.disabled = false;
+    btn.textContent = shared ? "Shared! ✓" : saved ? "Saved as PNG ✓" : "📤 Share this slip";
+    if (shared || saved) setTimeout(() => { btn.textContent = "📤 Share this slip"; }, 1500);
+  }
+}
+$("shareBtn").onclick = () => shareSlip();
 
 /* Time zones (Phase 3): draw/cutoff times in GAMES are the game's LOCAL
    wall-clock times as the lottery publishes them, and game.tz is the IANA
