@@ -250,7 +250,7 @@
   </section>
 
   <footer id="pageFooter">
-    Draw history through <b>Oct 21, 2026</b> — Ohio Pick 3/4/5, Rolling Cash 5 &amp; Classic Lotto via LotteryUSA's results archive; Mega Millions, Powerball &amp; Millionaire for Life and New York's Numbers, Win 4, Take 5, Pick 10 &amp; NY Lotto via New York Lottery open data; Pennsylvania, Michigan, Indiana, Kentucky &amp; West Virginia games via LotteryUSA's results archive.<br>
+    Draw history through <b>Nov 3, 2026</b> — Ohio Pick 3/4/5, Rolling Cash 5 &amp; Classic Lotto via LotteryUSA's results archive; Mega Millions, Powerball &amp; Millionaire for Life and New York's Numbers, Win 4, Take 5, Pick 10 &amp; NY Lotto via New York Lottery open data; all other states' games, Lotto America and the Tri-State games via LotteryUSA's results archive.<br>
     The honest print: every draw is independent and no cookie, however charming, can predict one. Crackpot Fortune reads patterns for the joy of it. Play for fun, never with money you need.
   </footer>
 </div>
@@ -295,11 +295,17 @@ const GAMES = {
   pa_cash5:{name:"PA Cash 5", kind:"balls", main:5, mainMax:43, sched:[{days:[0,1,2,3,4,5,6], draw:"18:59", cutoff:"18:57"}]},
   pa_match6:{name:"PA Match 6", kind:"balls", main:6, mainMax:49, sched:[{days:[0,1,2,3,4,5,6], draw:"18:59", cutoff:"18:57"}]},
   pa_treasurehunt:{name:"PA Treasure Hunt", kind:"balls", main:5, mainMax:30, sched:[{days:[0,1,2,3,4,5,6], draw:"13:35", cutoff:"13:05"}]},
-  /* --- Phase 2: Michigan (LotteryUSA). Midday cutoff 12:49 per LotteryUSA
-     schedule table; the Phase 1 catalog said 12:39 — flagged for an
-     official check, 12:49 used. --- */
-  mi_daily3:{name:"MI Daily 3", kind:"digits", positions:3, sched:[{days:[0,1,2,3,4,5,6], draw:"12:59", cutoff:"12:49", label:"Midday"},{days:[0,1,2,3,4,5,6], draw:"19:29", cutoff:"19:08", label:"Evening"}]},
-  mi_daily4:{name:"MI Daily 4", kind:"digits", positions:4, sched:[{days:[0,1,2,3,4,5,6], draw:"12:59", cutoff:"12:49", label:"Midday"},{days:[0,1,2,3,4,5,6], draw:"19:29", cutoff:"19:08", label:"Evening"}]},
+  /* --- Phase 2: Michigan (LotteryUSA). Midday cutoffs corrected Nov 3,
+     2026 (Phase 3): Daily 3/4 midday is 12:39, NOT 12:49 — the 12:49
+     figure was the Daily 5 cutoff, copied onto Daily 3/4 by several
+     secondary sources (and by LotteryUSA's own schedule). Six sources
+     incl. michiganlotterynumbers.com's draw-schedule table, lottery.net,
+     michiganlotterylive.com, lottostrategies.com, lotteryngo.com and
+     lotterycritic.com say Daily 3/4 midday cutoff 12:39, Daily 5 midday
+     12:49. The official michiganlottery.com is a JS app and could not be
+     scraped to confirm directly. Evening 19:08 for all three. --- */
+  mi_daily3:{name:"MI Daily 3", kind:"digits", positions:3, sched:[{days:[0,1,2,3,4,5,6], draw:"12:59", cutoff:"12:39", label:"Midday"},{days:[0,1,2,3,4,5,6], draw:"19:29", cutoff:"19:08", label:"Evening"}]},
+  mi_daily4:{name:"MI Daily 4", kind:"digits", positions:4, sched:[{days:[0,1,2,3,4,5,6], draw:"12:59", cutoff:"12:39", label:"Midday"},{days:[0,1,2,3,4,5,6], draw:"19:29", cutoff:"19:08", label:"Evening"}]},
   mi_daily5:{name:"MI Daily 5", kind:"digits", positions:5, sched:[{days:[0,1,2,3,4,5,6], draw:"12:59", cutoff:"12:49", label:"Midday"},{days:[0,1,2,3,4,5,6], draw:"19:29", cutoff:"19:08", label:"Evening"}]},
   mi_fantasy5:{name:"MI Fantasy 5", kind:"balls", main:5, mainMax:39, sched:[{days:[0,1,2,3,4,5,6], draw:"19:29", cutoff:"19:08"}]},
   mi_lotto47:{name:"MI Lotto 47", kind:"balls", main:6, mainMax:47, sched:[{days:[3,6], draw:"19:29", cutoff:"19:08"}]},
@@ -314,7 +320,180 @@ const GAMES = {
   /* --- Phase 2: West Virginia (LotteryUSA) --- */
   wv_daily3:{name:"WV Daily 3", kind:"digits", positions:3, sched:[{days:[1,2,3,4,5,6], draw:"18:59", cutoff:"18:49"}]},
   wv_daily4:{name:"WV Daily 4", kind:"digits", positions:4, sched:[{days:[1,2,3,4,5,6], draw:"18:59", cutoff:"18:49"}]},
-  wv_cash25:{name:"WV Cash 25", kind:"balls", main:6, mainMax:25, sched:[{days:[1,2,4,5], draw:"18:59", cutoff:"18:49"}]}
+  wv_cash25:{name:"WV Cash 25", kind:"balls", main:6, mainMax:25, sched:[{days:[1,2,4,5], draw:"18:59", cutoff:"18:49"}]},
+  /* --- Phase 3: Arizona (LotteryUSA) --- */
+  az_fantasy5:{name:"AZ Fantasy 5",kind:"balls",main:5,mainMax:41,tz:"America/Phoenix",sched:[{days:[0,1,2,3,4,5,6],draw:"19:00",cutoff:"18:59"}]},
+  az_pick3:{name:"AZ Pick 3",kind:"digits",positions:3,tz:"America/Phoenix",sched:[{days:[0,1,2,3,4,5,6],draw:"12:00",cutoff:"11:59",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"19:00",cutoff:"18:59",label:"Evening"}]},
+  az_pick4:{name:"AZ Pick 4",kind:"digits",positions:4,tz:"America/Phoenix",sched:[{days:[0,1,2,3,4,5,6],draw:"12:00",cutoff:"11:59",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"19:00",cutoff:"18:59",label:"Evening"}]},
+  az_thepick:{name:"AZ The Pick",kind:"balls",main:6,mainMax:40,tz:"America/Phoenix",sched:[{days:[1,3,6],draw:"19:00",cutoff:"18:59"}]},
+  az_tripletwist:{name:"AZ Triple Twist",kind:"balls",main:6,mainMax:42,tz:"America/Phoenix",sched:[{days:[0,1,2,3,4,5,6],draw:"19:00",cutoff:"18:59"}]},
+  /* --- Phase 3: Arkansas (LotteryUSA) --- */
+  ar_cash3:{name:"AR Cash 3",kind:"digits",positions:3,tz:"America/Chicago",sched:[{days:[1,2,3,4,5,6],draw:"12:59",cutoff:"12:55",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"18:59",cutoff:"18:55",label:"Evening"}]},
+  ar_cash4:{name:"AR Cash 4",kind:"digits",positions:4,tz:"America/Chicago",sched:[{days:[1,2,3,4,5,6],draw:"12:59",cutoff:"12:55",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"18:59",cutoff:"18:55",label:"Evening"}]},
+  ar_lotto:{name:"AR LOTTO",kind:"balls",main:6,mainMax:40,bonusMax:40,bonusName:"Bonus Number",tz:"America/Chicago",sched:[{days:[3,6],draw:"21:00",cutoff:"20:59"}]},
+  ar_naturalstate:{name:"AR Natural State Jackpot",kind:"balls",main:5,mainMax:39,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"20:00",cutoff:"19:59"}]},
+  /* --- Phase 3: California (LotteryUSA) --- */
+  ca_daily3:{name:"CA Daily 3",kind:"digits",positions:3,tz:"America/Los_Angeles",sched:[{days:[0,1,2,3,4,5,6],draw:"13:00",cutoff:"13:00",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"18:30",cutoff:"18:30",label:"Evening"}]},
+  ca_daily4:{name:"CA Daily 4",kind:"digits",positions:4,tz:"America/Los_Angeles",sched:[{days:[0,1,2,3,4,5,6],draw:"18:30",cutoff:"18:30"}]},
+  ca_fantasy5:{name:"CA Fantasy 5",kind:"balls",main:5,mainMax:39,tz:"America/Los_Angeles",sched:[{days:[0,1,2,3,4,5,6],draw:"18:30",cutoff:"18:30"}]},
+  ca_superlotto:{name:"CA SuperLotto Plus",kind:"balls",main:5,mainMax:47,bonusMax:27,bonusName:"Mega Ball",tz:"America/Los_Angeles",sched:[{days:[3,6],draw:"19:45",cutoff:"19:45"}]},
+  /* --- Phase 3: Colorado (LotteryUSA) --- */
+  co_cash5:{name:"CO Cash 5",kind:"balls",main:5,mainMax:32,tz:"America/Denver",sched:[{days:[0,1,2,3,4,5,6],draw:"19:35",cutoff:"19:30"}]},
+  co_lotto:{name:"CO Lotto",kind:"balls",main:6,mainMax:40,tz:"America/Denver",sched:[{days:[1,3,6],draw:"19:35",cutoff:"19:30"}]},
+  co_pick3:{name:"CO Pick 3",kind:"digits",positions:3,tz:"America/Denver",sched:[{days:[0,1,2,3,4,5,6],draw:"13:30",cutoff:"13:30",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"19:30",cutoff:"19:30",label:"Evening"}]},
+  /* --- Phase 3: Connecticut (LotteryUSA) --- */
+  ct_cash5:{name:"CT Cash 5",kind:"balls",main:5,mainMax:35,sched:[{days:[0,1,2,3,4,5,6],draw:"22:29",cutoff:"22:20"}]},
+  ct_classiclotto:{name:"CT Classic Lotto",kind:"balls",main:6,mainMax:44,sched:[{days:[2,5],draw:"22:38",cutoff:"22:20"}]},
+  ct_play3:{name:"CT Play 3",kind:"digits",positions:3,sched:[{days:[0,1,2,3,4,5,6],draw:"13:57",cutoff:"13:45",label:"Day"},{days:[0,1,2,3,4,5,6],draw:"22:29",cutoff:"22:20",label:"Night"}]},
+  ct_play4:{name:"CT Play 4",kind:"digits",positions:4,sched:[{days:[0,1,2,3,4,5,6],draw:"13:57",cutoff:"13:45",label:"Day"},{days:[0,1,2,3,4,5,6],draw:"22:29",cutoff:"22:20",label:"Night"}]},
+  /* --- Phase 3: Delaware (LotteryUSA) --- */
+  de_lotto:{name:"DE Multi-Win Lotto",kind:"balls",main:6,mainMax:35,sched:[{days:[0,1,2,3,4,5,6],draw:"19:57",cutoff:"19:30"}]},
+  de_play3:{name:"DE Play 3",kind:"digits",positions:3,sched:[{days:[0,1,2,3,4,5,6],draw:"13:58",cutoff:"13:40",label:"Day"},{days:[0,1,2,3,4,5,6],draw:"19:57",cutoff:"19:30",label:"Night"}]},
+  de_play4:{name:"DE Play 4",kind:"digits",positions:4,sched:[{days:[0,1,2,3,4,5,6],draw:"13:58",cutoff:"13:40",label:"Day"},{days:[0,1,2,3,4,5,6],draw:"19:57",cutoff:"19:30",label:"Night"}]},
+  de_play5:{name:"DE Play 5",kind:"digits",positions:5,sched:[{days:[0,1,2,3,4,5,6],draw:"13:58",cutoff:"13:40",label:"Day"},{days:[0,1,2,3,4,5,6],draw:"19:57",cutoff:"19:30",label:"Night"}]},
+  /* --- Phase 3: District of Columbia (LotteryUSA) --- */
+  dc_3:{name:"DC-3",kind:"digits",positions:3,sched:[{days:[0,1,2,3,4,5,6],draw:"13:50",cutoff:"13:49",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"19:50",cutoff:"19:49",label:"Evening"},{days:[0,1,2,3,4,5,6],draw:"23:30",cutoff:"23:29",label:"Night"}]},
+  dc_4:{name:"DC-4",kind:"digits",positions:4,sched:[{days:[0,1,2,3,4,5,6],draw:"13:50",cutoff:"13:49",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"19:50",cutoff:"19:49",label:"Evening"},{days:[0,1,2,3,4,5,6],draw:"23:30",cutoff:"23:29",label:"Night"}]},
+  dc_5:{name:"DC-5",kind:"digits",positions:5,sched:[{days:[0,1,2,3,4,5,6],draw:"13:50",cutoff:"13:49",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"19:50",cutoff:"19:49",label:"Evening"}]},
+  /* --- Phase 3: Florida (LotteryUSA) --- */
+  fl_fantasy5:{name:"FL Fantasy 5",kind:"balls",main:5,mainMax:36,sched:[{days:[0,1,2,3,4,5,6],draw:"13:05",cutoff:"12:45",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"23:15",cutoff:"22:40",label:"Evening"}]},
+  fl_jackpottripleplay:{name:"FL Jackpot Triple Play",kind:"balls",main:6,mainMax:46,sched:[{days:[2,5],draw:"23:15",cutoff:"22:40"}]},
+  fl_lotto:{name:"FL Lotto",kind:"balls",main:6,mainMax:53,sched:[{days:[3,6],draw:"23:15",cutoff:"22:40"}]},
+  fl_pick2:{name:"FL Pick 2",kind:"digits",positions:2,sched:[{days:[0,1,2,3,4,5,6],draw:"13:30",cutoff:"13:17",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"21:45",cutoff:"21:32",label:"Evening"}]},
+  fl_pick3:{name:"FL Pick 3",kind:"digits",positions:3,sched:[{days:[0,1,2,3,4,5,6],draw:"13:30",cutoff:"13:19",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"21:45",cutoff:"21:34",label:"Evening"}]},
+  fl_pick4:{name:"FL Pick 4",kind:"digits",positions:4,sched:[{days:[0,1,2,3,4,5,6],draw:"13:30",cutoff:"13:20",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"21:45",cutoff:"21:35",label:"Evening"}]},
+  fl_pick5:{name:"FL Pick 5",kind:"digits",positions:5,sched:[{days:[0,1,2,3,4,5,6],draw:"13:30",cutoff:"13:18",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"21:45",cutoff:"21:33",label:"Evening"}]},
+  /* --- Phase 3: Georgia (LotteryUSA) --- */
+  ga_cash3:{name:"GA Cash 3",kind:"digits",positions:3,sched:[{days:[0,1,2,3,4,5,6],draw:"12:29",cutoff:"12:20",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"18:59",cutoff:"18:50",label:"Evening"},{days:[0,1,2,3,4,5,6],draw:"23:34",cutoff:"22:45",label:"Night"}]},
+  ga_cash4:{name:"GA Cash 4",kind:"digits",positions:4,sched:[{days:[0,1,2,3,4,5,6],draw:"12:29",cutoff:"12:20",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"18:59",cutoff:"18:50",label:"Evening"},{days:[0,1,2,3,4,5,6],draw:"23:34",cutoff:"22:45",label:"Night"}]},
+  ga_fantasy5:{name:"GA Fantasy 5",kind:"balls",main:5,mainMax:42,sched:[{days:[0,1,2,3,4,5,6],draw:"23:34",cutoff:"22:45"}]},
+  ga_georgiafive:{name:"GA Georgia FIVE",kind:"digits",positions:5,sched:[{days:[0,1,2,3,4,5,6],draw:"12:29",cutoff:"12:20",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"18:59",cutoff:"18:50",label:"Evening"}]},
+  /* --- Phase 3: Idaho (LotteryUSA) --- */
+  id_idahocash:{name:"ID Idaho Cash",kind:"balls",main:5,mainMax:45,tz:"America/Denver",sched:[{days:[0,1,2,3,4,5,6],draw:"20:00",cutoff:"19:55"}]},
+  id_pick3:{name:"ID Pick 3",kind:"digits",positions:3,tz:"America/Denver",sched:[{days:[0,1,2,3,4,5,6],draw:"13:59",cutoff:"13:54",label:"Day"},{days:[0,1,2,3,4,5,6],draw:"19:59",cutoff:"19:54",label:"Night"}]},
+  id_pick4:{name:"ID Pick 4",kind:"digits",positions:4,tz:"America/Denver",sched:[{days:[0,1,2,3,4,5,6],draw:"13:59",cutoff:"13:54",label:"Day"},{days:[0,1,2,3,4,5,6],draw:"19:59",cutoff:"19:54",label:"Night"}]},
+  /* --- Phase 3: Illinois (LotteryUSA) --- */
+  il_lotto:{name:"IL Lotto",kind:"balls",main:6,mainMax:50,bonusMax:25,bonusName:"Extra Shot",tz:"America/Chicago",sched:[{days:[1,4,6],draw:"21:22",cutoff:"21:15"}]},
+  il_luckydaylotto:{name:"IL Lucky Day Lotto",kind:"balls",main:5,mainMax:45,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"12:40",cutoff:"12:35",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"21:22",cutoff:"21:15",label:"Evening"}]},
+  il_pick3:{name:"IL Pick 3",kind:"digits",positions:3,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"12:40",cutoff:"12:35",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"21:22",cutoff:"21:15",label:"Evening"}]},
+  il_pick4:{name:"IL Pick 4",kind:"digits",positions:4,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"12:40",cutoff:"12:35",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"21:22",cutoff:"21:15",label:"Evening"}]},
+  /* --- Phase 3: Iowa (LotteryUSA) --- */
+  ia_pick3:{name:"IA Pick 3",kind:"digits",positions:3,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"12:20",cutoff:"12:00",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"22:00",cutoff:"21:40",label:"Evening"}]},
+  ia_pick4:{name:"IA Pick 4",kind:"digits",positions:4,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"12:20",cutoff:"12:00",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"22:00",cutoff:"21:40",label:"Evening"}]},
+  /* --- Phase 3: Kansas (LotteryUSA) --- */
+  ks_pick3:{name:"KS Pick 3",kind:"digits",positions:3,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"13:10",cutoff:"12:59",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"21:10",cutoff:"20:59",label:"Evening"}]},
+  ks_superkansas:{name:"KS Super Kansas Cash",kind:"balls",main:5,mainMax:32,bonusMax:25,bonusName:"Bonus Ball",tz:"America/Chicago",sched:[{days:[1,3,6],draw:"21:10",cutoff:"20:59"}]},
+  /* --- Phase 3: Louisiana (LotteryUSA) --- */
+  la_easy5:{name:"LA Easy 5",kind:"balls",main:5,mainMax:37,tz:"America/Chicago",sched:[{days:[3,6],draw:"21:59",cutoff:"21:30"}]},
+  la_lotto:{name:"LA Lotto",kind:"balls",main:6,mainMax:42,tz:"America/Chicago",sched:[{days:[3,6],draw:"21:59",cutoff:"21:30"}]},
+  la_pick3:{name:"LA Pick 3",kind:"digits",positions:3,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"21:59",cutoff:"21:30"}]},
+  la_pick4:{name:"LA Pick 4",kind:"digits",positions:4,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"21:59",cutoff:"21:30"}]},
+  la_pick5:{name:"LA Pick 5",kind:"digits",positions:5,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"21:59",cutoff:"21:30"}]},
+  /* --- Phase 3: Maine (LotteryUSA) --- */
+  me_pick3:{name:"ME Pick 3",kind:"digits",positions:3,sched:[{days:[0,1,2,3,4,5,6],draw:"13:10",cutoff:"13:00",label:"Day"},{days:[0,1,2,3,4,5,6],draw:"18:50",cutoff:"18:45",label:"Evening"}]},
+  me_pick4:{name:"ME Pick 4",kind:"digits",positions:4,sched:[{days:[0,1,2,3,4,5,6],draw:"13:10",cutoff:"13:00",label:"Day"},{days:[0,1,2,3,4,5,6],draw:"18:50",cutoff:"18:45",label:"Evening"}]},
+  /* --- Phase 3: Maryland (LotteryUSA) --- */
+  md_bonusmatch5:{name:"MD Bonus Match 5",kind:"balls",main:5,mainMax:39,bonusMax:39,bonusName:"Bonus Ball",sched:[{days:[1,2,3,4,5,6],draw:"19:56",cutoff:"19:52"},{days:[0],draw:"20:22",cutoff:"19:52"}]},
+  md_multimatch:{name:"MD Multi-Match",kind:"balls",main:6,mainMax:43,sched:[{days:[1,4],draw:"19:56",cutoff:"19:52"}]},
+  md_pick3:{name:"MD Pick 3",kind:"digits",positions:3,sched:[{days:[1,2,3,4,5],draw:"12:27",cutoff:"12:24",label:"Midday"},{days:[0,6],draw:"12:28",cutoff:"12:24",label:"Midday"},{days:[1,2,3,4,5,6],draw:"19:56",cutoff:"19:52",label:"Evening"},{days:[0],draw:"20:22",cutoff:"19:52",label:"Evening"}]},
+  md_pick4:{name:"MD Pick 4",kind:"digits",positions:4,sched:[{days:[1,2,3,4,5],draw:"12:27",cutoff:"12:24",label:"Midday"},{days:[0,6],draw:"12:28",cutoff:"12:24",label:"Midday"},{days:[1,2,3,4,5,6],draw:"19:56",cutoff:"19:52",label:"Evening"},{days:[0],draw:"20:22",cutoff:"19:52",label:"Evening"}]},
+  md_pick5:{name:"MD Pick 5",kind:"digits",positions:5,sched:[{days:[1,2,3,4,5],draw:"12:27",cutoff:"12:24",label:"Midday"},{days:[0,6],draw:"12:28",cutoff:"12:24",label:"Midday"},{days:[1,2,3,4,5,6],draw:"19:56",cutoff:"19:52",label:"Evening"},{days:[0],draw:"20:22",cutoff:"19:52",label:"Evening"}]},
+  /* --- Phase 3: Massachusetts (LotteryUSA) --- */
+  ma_mass3:{name:"MA Mass 3",kind:"digits",positions:3,sched:[{days:[0,1,2,3,4,5,6],draw:"22:00",cutoff:"21:55"}]},
+  ma_mass4:{name:"MA Mass 4",kind:"digits",positions:4,sched:[{days:[0,1,2,3,4,5,6],draw:"22:00",cutoff:"21:55"}]},
+  ma_masscash:{name:"MA Mass Cash",kind:"balls",main:5,mainMax:35,sched:[{days:[0,1,2,3,4,5,6],draw:"14:00",cutoff:"13:45",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"21:00",cutoff:"20:45",label:"Evening"}]},
+  ma_megabucks:{name:"MA Megabucks Doubler",kind:"balls",main:6,mainMax:44,sched:[{days:[1,3,6],draw:"21:00",cutoff:"21:00"}]},
+  ma_numbers:{name:"MA Numbers Game",kind:"digits",positions:4,sched:[{days:[0,1,2,3,4,5,6],draw:"14:00",cutoff:"13:45",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"21:00",cutoff:"20:45",label:"Evening"}]},
+  /* --- Phase 3: Minnesota (LotteryUSA) --- */
+  mn_daily3:{name:"MN Daily 3",kind:"digits",positions:3,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"18:17",cutoff:"18:10"}]},
+  mn_gopher5:{name:"MN Gopher 5",kind:"balls",main:5,mainMax:47,tz:"America/Chicago",sched:[{days:[1,3,5],draw:"18:17",cutoff:"18:10"}]},
+  mn_north5:{name:"MN North 5",kind:"balls",main:5,mainMax:34,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"18:17",cutoff:"18:10"}]},
+  /* --- Phase 3: Mississippi (LotteryUSA) --- */
+  ms_cash3:{name:"MS Cash 3",kind:"digits",positions:3,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"14:30",cutoff:"14:15",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"21:30",cutoff:"21:15",label:"Evening"}]},
+  ms_cash4:{name:"MS Cash 4",kind:"digits",positions:4,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"14:30",cutoff:"14:15",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"21:30",cutoff:"21:15",label:"Evening"}]},
+  ms_match5:{name:"MS Match 5",kind:"balls",main:5,mainMax:35,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"21:30",cutoff:"21:15"}]},
+  /* --- Phase 3: Missouri (LotteryUSA) --- */
+  mo_millions:{name:"MO Millions",kind:"balls",main:5,mainMax:42,bonusMax:42,bonusName:"Bulls-Eye",tz:"America/Chicago",sched:[{days:[3,6],draw:"20:59",cutoff:"20:59"}]},
+  mo_pick3:{name:"MO Pick 3",kind:"digits",positions:3,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"12:45",cutoff:"12:45",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"20:59",cutoff:"20:59",label:"Evening"}]},
+  mo_pick4:{name:"MO Pick 4",kind:"digits",positions:4,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"12:45",cutoff:"12:45",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"20:59",cutoff:"20:59",label:"Evening"}]},
+  mo_showme:{name:"MO Show Me Cash",kind:"balls",main:5,mainMax:39,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"20:59",cutoff:"20:59"}]},
+  /* --- Phase 3: Montana (LotteryUSA) --- */
+  mt_bigskyb:{name:"MT Big Sky Bonus",kind:"balls",main:4,mainMax:31,bonusMax:16,bonusName:"Bonus Ball",tz:"America/Denver",sched:[{days:[0,1,2,3,4,5,6],draw:"19:30",cutoff:"19:28"}]},
+  mt_cash:{name:"MT Montana Cash",kind:"balls",main:5,mainMax:45,tz:"America/Denver",sched:[{days:[3,6],draw:"20:00",cutoff:"19:59"}]},
+  /* --- Phase 3: Nebraska (LotteryUSA) --- */
+  ne_pick3:{name:"NE Pick 3",kind:"digits",positions:3,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"22:00",cutoff:"21:00"}]},
+  ne_pick5:{name:"NE Pick 5",kind:"balls",main:5,mainMax:40,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"21:00",cutoff:"21:00"}]},
+  /* --- Phase 3: New Hampshire (LotteryUSA) --- */
+  nh_pick3:{name:"NH Pick 3",kind:"digits",positions:3,sched:[{days:[0,1,2,3,4,5,6],draw:"13:10",cutoff:"13:00",label:"Day"},{days:[0,1,2,3,4,5,6],draw:"18:55",cutoff:"18:45",label:"Evening"}]},
+  nh_pick4:{name:"NH Pick 4",kind:"digits",positions:4,sched:[{days:[0,1,2,3,4,5,6],draw:"13:10",cutoff:"13:00",label:"Day"},{days:[0,1,2,3,4,5,6],draw:"18:55",cutoff:"18:45",label:"Evening"}]},
+  /* --- Phase 3: New Jersey (LotteryUSA) --- */
+  nj_cash5:{name:"NJ Jersey Cash 5",kind:"balls",main:5,mainMax:45,sched:[{days:[0,1,2,3,4,5,6],draw:"22:57",cutoff:"22:53"}]},
+  nj_pick3:{name:"NJ Pick 3",kind:"digits",positions:3,sched:[{days:[0,1,2,3,4,5,6],draw:"12:59",cutoff:"12:53",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"22:57",cutoff:"22:53",label:"Evening"}]},
+  nj_pick4:{name:"NJ Pick 4",kind:"digits",positions:4,sched:[{days:[0,1,2,3,4,5,6],draw:"12:59",cutoff:"12:53",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"22:57",cutoff:"22:53",label:"Evening"}]},
+  nj_pick6:{name:"NJ Pick-6",kind:"balls",main:6,mainMax:46,sched:[{days:[1,4,6],draw:"22:57",cutoff:"22:53"}]},
+  /* --- Phase 3: New Mexico (LotteryUSA) --- */
+  nm_pick3plus:{name:"NM Pick 3 Plus",kind:"digits",positions:3,tz:"America/Denver",sched:[{days:[0,1,2,3,4,5,6],draw:"13:00",cutoff:"13:00",label:"Day"},{days:[0,1,2,3,4,5,6],draw:"21:30",cutoff:"21:30",label:"Evening"}]},
+  nm_pick4plus:{name:"NM Pick 4 Plus",kind:"digits",positions:4,tz:"America/Denver",sched:[{days:[0,1,2,3,4,5,6],draw:"13:00",cutoff:"13:00",label:"Day"},{days:[0,1,2,3,4,5,6],draw:"21:30",cutoff:"21:30",label:"Evening"}]},
+  nm_roadrunner:{name:"NM Roadrunner Cash",kind:"balls",main:5,mainMax:37,tz:"America/Denver",sched:[{days:[0,1,2,3,4,5,6],draw:"21:30",cutoff:"21:30"}]},
+  /* --- Phase 3: North Carolina (LotteryUSA) --- */
+  nc_cash5:{name:"NC Cash 5",kind:"balls",main:5,mainMax:43,sched:[{days:[0,1,2,3,4,5,6],draw:"23:22",cutoff:"22:59"}]},
+  nc_pick3:{name:"NC Pick 3",kind:"digits",positions:3,sched:[{days:[0,1,2,3,4,5,6],draw:"15:00",cutoff:"14:45",label:"Daytime"},{days:[0,1,2,3,4,5,6],draw:"23:22",cutoff:"22:59",label:"Evening"}]},
+  nc_pick4:{name:"NC Pick 4",kind:"digits",positions:4,sched:[{days:[0,1,2,3,4,5,6],draw:"15:00",cutoff:"14:45",label:"Daytime"},{days:[0,1,2,3,4,5,6],draw:"23:22",cutoff:"22:59",label:"Evening"}]},
+  /* --- Phase 3: Oklahoma (LotteryUSA) --- */
+  ok_cash5:{name:"OK Cash 5",kind:"balls",main:5,mainMax:36,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"21:00",cutoff:"20:59"}]},
+  ok_pick3:{name:"OK Pick 3",kind:"digits",positions:3,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"21:00",cutoff:"20:59"}]},
+  /* --- Phase 3: Oregon (LotteryUSA) --- */
+  or_megabucks:{name:"OR Megabucks",kind:"balls",main:6,mainMax:48,tz:"America/Los_Angeles",sched:[{days:[1,3,6],draw:"19:29",cutoff:"19:29"}]},
+  or_winforlife:{name:"OR Win for Life",kind:"balls",main:4,mainMax:77,tz:"America/Los_Angeles",sched:[{days:[1,3,6],draw:"19:30",cutoff:"19:30"}]},
+  /* --- Phase 3: Puerto Rico (LotteryUSA) --- */
+  pr_lotoplus:{name:"PR Loto Plus",kind:"balls",main:5,mainMax:35,bonusMax:10,bonusName:"Bolo CASH",tz:"America/Puerto_Rico",sched:[{days:[1,3,5],draw:"21:00",cutoff:"20:45"}]},
+  pr_pega2:{name:"PR Pega 2",kind:"digits",positions:2,tz:"America/Puerto_Rico",sched:[{days:[1,2,3,4,5,6],draw:"14:00",cutoff:"13:45",label:"Day"},{days:[1,2,3,4,5,6],draw:"21:00",cutoff:"20:45",label:"Night"}]},
+  pr_pega3:{name:"PR Pega 3",kind:"digits",positions:3,tz:"America/Puerto_Rico",sched:[{days:[1,2,3,4,5,6],draw:"14:00",cutoff:"13:45",label:"Day"},{days:[1,2,3,4,5,6],draw:"21:00",cutoff:"20:45",label:"Night"}]},
+  pr_pega4:{name:"PR Pega 4",kind:"digits",positions:4,tz:"America/Puerto_Rico",sched:[{days:[1,2,3,4,5,6],draw:"14:00",cutoff:"13:45",label:"Day"},{days:[1,2,3,4,5,6],draw:"21:00",cutoff:"20:45",label:"Night"}]},
+  /* --- Phase 3: Rhode Island (LotteryUSA) --- */
+  ri_numbers:{name:"RI Numbers Game",kind:"digits",positions:4,sched:[{days:[0,1,2,3,4,5,6],draw:"13:30",cutoff:"13:20",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"19:29",cutoff:"18:50",label:"Evening"}]},
+  ri_wildmoney:{name:"RI Wild Money",kind:"balls",main:5,mainMax:38,bonusMax:38,bonusName:"Extra Ball",sched:[{days:[0,1,2,3,4,5,6],draw:"19:29",cutoff:"18:50"}]},
+  /* --- Phase 3: South Carolina (LotteryUSA) --- */
+  sc_palmetto5:{name:"SC Palmetto Cash 5",kind:"balls",main:5,mainMax:42,sched:[{days:[0,1,2,3,4,5,6],draw:"18:59",cutoff:"18:45"}]},
+  sc_pick3:{name:"SC Pick 3",kind:"digits",positions:3,sched:[{days:[1,2,3,4,5,6],draw:"12:59",cutoff:"12:45",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"18:59",cutoff:"18:45",label:"Evening"}]},
+  sc_pick4:{name:"SC Pick 4",kind:"digits",positions:4,sched:[{days:[1,2,3,4,5,6],draw:"12:59",cutoff:"12:45",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"18:59",cutoff:"18:45",label:"Evening"}]},
+  /* --- Phase 3: South Dakota (LotteryUSA) --- */
+  sd_dakotacash:{name:"SD Dakota Cash",kind:"balls",main:5,mainMax:35,tz:"America/Chicago",sched:[{days:[3,6],draw:"21:00",cutoff:"21:00"}]},
+  /* --- Phase 3: Tennessee (LotteryUSA) --- */
+  tn_cash3:{name:"TN Cash 3",kind:"digits",positions:3,tz:"America/Chicago",sched:[{days:[1,2,3,4,5,6],draw:"09:28",cutoff:"09:08",label:"Morning"},{days:[1,2,3,4,5,6],draw:"12:28",cutoff:"12:08",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"18:28",cutoff:"18:08",label:"Evening"}]},
+  tn_cash4:{name:"TN Cash 4",kind:"digits",positions:4,tz:"America/Chicago",sched:[{days:[1,2,3,4,5,6],draw:"09:28",cutoff:"09:08",label:"Morning"},{days:[1,2,3,4,5,6],draw:"12:28",cutoff:"12:08",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"18:28",cutoff:"18:08",label:"Evening"}]},
+  tn_dailyjackpot:{name:"TN Daily Tennessee Jackpot",kind:"balls",main:5,mainMax:38,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"21:00",cutoff:"20:45"}]},
+  tn_tncash:{name:"TN Tennessee Cash",kind:"balls",main:5,mainMax:35,bonusMax:5,bonusName:"Cash Ball",tz:"America/Chicago",sched:[{days:[1,3,5],draw:"22:30",cutoff:"22:15"}]},
+  /* --- Phase 3: Texas (LotteryUSA) --- */
+  tx_cashfive:{name:"TX Cash Five",kind:"balls",main:5,mainMax:35,tz:"America/Chicago",sched:[{days:[1,2,3,4,5,6],draw:"22:12",cutoff:"22:02"}]},
+  tx_lottotexas:{name:"TX Lotto Texas",kind:"balls",main:6,mainMax:54,tz:"America/Chicago",sched:[{days:[1,3,6],draw:"22:12",cutoff:"22:02"}]},
+  tx_twostep:{name:"TX Texas Two Step",kind:"balls",main:4,mainMax:35,bonusMax:35,bonusName:"Bonus Ball",tz:"America/Chicago",sched:[{days:[1,4],draw:"22:12",cutoff:"22:02"}]},
+  /* --- Phase 3: Vermont (LotteryUSA) --- */
+  vt_pick3:{name:"VT Pick 3",kind:"digits",positions:3,sched:[{days:[0,1,2,3,4,5,6],draw:"13:10",cutoff:"13:00",label:"Day"},{days:[0,1,2,3,4,5,6],draw:"18:59",cutoff:"18:45",label:"Evening"}]},
+  vt_pick4:{name:"VT Pick 4",kind:"digits",positions:4,sched:[{days:[0,1,2,3,4,5,6],draw:"13:10",cutoff:"13:00",label:"Day"},{days:[0,1,2,3,4,5,6],draw:"18:55",cutoff:"18:45",label:"Evening"}]},
+  /* --- Phase 3: Virginia (LotteryUSA) --- */
+  va_bankamillion:{name:"VA Bank a Million",kind:"balls",main:6,mainMax:40,bonusMax:40,bonusName:"Bonus Ball",sched:[{days:[3,6],draw:"23:00",cutoff:"22:45"}]},
+  va_cash5:{name:"VA Cash 5",kind:"balls",main:5,mainMax:45,sched:[{days:[0,1,2,3,4,5,6],draw:"23:00",cutoff:"22:45"}]},
+  va_pick3:{name:"VA Pick 3",kind:"digits",positions:3,sched:[{days:[0,1,2,3,4,5,6],draw:"13:59",cutoff:"13:53",label:"Day"},{days:[0,1,2,3,4,5,6],draw:"23:00",cutoff:"22:45",label:"Night"}]},
+  va_pick4:{name:"VA Pick 4",kind:"digits",positions:4,sched:[{days:[0,1,2,3,4,5,6],draw:"13:59",cutoff:"13:53",label:"Day"},{days:[0,1,2,3,4,5,6],draw:"23:00",cutoff:"22:45",label:"Night"}]},
+  va_pick5:{name:"VA Pick 5",kind:"digits",positions:5,sched:[{days:[0,1,2,3,4,5,6],draw:"13:59",cutoff:"13:53",label:"Day"},{days:[0,1,2,3,4,5,6],draw:"23:00",cutoff:"22:45",label:"Night"}]},
+  /* --- Phase 3: Washington (LotteryUSA) --- */
+  wa_daily:{name:"WA Daily",kind:"digits",positions:3,tz:"America/Los_Angeles",sched:[{days:[0,1,2,3,4,5,6],draw:"20:00",cutoff:"19:45"}]},
+  wa_hit5:{name:"WA Hit 5",kind:"balls",main:5,mainMax:42,tz:"America/Los_Angeles",sched:[{days:[0,1,2,3,4,5,6],draw:"20:00",cutoff:"19:45"}]},
+  wa_lotto:{name:"WA Lotto",kind:"balls",main:6,mainMax:49,tz:"America/Los_Angeles",sched:[{days:[1,3,6],draw:"20:00",cutoff:"19:45"}]},
+  wa_match4:{name:"WA Match 4",kind:"balls",main:4,mainMax:24,tz:"America/Los_Angeles",sched:[{days:[0,1,2,3,4,5,6],draw:"20:00",cutoff:"19:45"}]},
+  /* --- Phase 3: Wisconsin (LotteryUSA) --- */
+  wi_badger5:{name:"WI Badger 5",kind:"balls",main:5,mainMax:31,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"21:00",cutoff:"21:00"}]},
+  wi_megabucks:{name:"WI Very Own Megabucks",kind:"balls",main:6,mainMax:49,tz:"America/Chicago",sched:[{days:[3,6],draw:"21:00",cutoff:"21:00"}]},
+  wi_pick3:{name:"WI Daily Pick 3",kind:"digits",positions:3,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"13:30",cutoff:"13:30",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"21:00",cutoff:"21:00",label:"Evening"}]},
+  wi_pick4:{name:"WI Daily Pick 4",kind:"digits",positions:4,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"13:30",cutoff:"13:30",label:"Midday"},{days:[0,1,2,3,4,5,6],draw:"21:00",cutoff:"21:00",label:"Evening"}]},
+  wi_supercash:{name:"WI SuperCash",kind:"balls",main:6,mainMax:39,tz:"America/Chicago",sched:[{days:[0,1,2,3,4,5,6],draw:"21:00",cutoff:"21:00"}]},
+  /* --- Phase 3: Wyoming (LotteryUSA) --- */
+  wy_cowboydraw:{name:"WY Cowboy Draw",kind:"balls",main:5,mainMax:45,tz:"America/Denver",sched:[{days:[1,4],draw:"14:00",cutoff:"13:45"}]},
+  /* --- Phase 3: Shared games (LotteryUSA) --- */
+  lottoamerica:{name:"Lotto America",kind:"balls",main:5,mainMax:52,bonusMax:10,bonusName:"Star Ball",tz:"America/Chicago",sched:[{days:[1,3,6],draw:"21:15",cutoff:null}]},
+  tristate_gimme5:{name:"Tri-State Gimme 5",kind:"balls",main:5,mainMax:39,sched:[{days:[1,2,3,4,5],draw:"18:59",cutoff:"18:45"}]},
+  tristate_megabucks:{name:"Tri-State Megabucks",kind:"balls",main:5,mainMax:41,bonusMax:6,bonusName:"Megaball",sched:[{days:[1,3,6],draw:"19:59",cutoff:"19:50"}]},
 };
 
 /* ---------- states (Phase 2) ---------- */
@@ -329,33 +508,56 @@ const STATES = {
   mi:{name:"Michigan", abbr:"MI", games:["mi_daily3","mi_daily4","mi_daily5","mi_fantasy5","mi_lotto47","megamillions","powerball","millionaireforlife"]},
   in:{name:"Indiana", abbr:"IN", games:["in_daily3","in_daily4","megamillions","powerball","millionaireforlife"]},
   ky:{name:"Kentucky", abbr:"KY", games:["ky_pick3","ky_pick4","megamillions","powerball","millionaireforlife"]},
-  wv:{name:"West Virginia", abbr:"WV", games:["wv_daily3","wv_daily4","wv_cash25","megamillions","powerball","millionaireforlife"]}
+  wv:{name:"West Virginia", abbr:"WV", games:["wv_daily3","wv_daily4","wv_cash25","megamillions","powerball","millionaireforlife"]},
+  az:{name:"Arizona", abbr:"AZ", games:["az_pick3","az_pick4","az_fantasy5","az_thepick","az_tripletwist","powerball","megamillions"]},
+  ar:{name:"Arkansas", abbr:"AR", games:["ar_cash3","ar_cash4","ar_naturalstate","ar_lotto","powerball","megamillions","millionaireforlife"]},
+  ca:{name:"California", abbr:"CA", games:["ca_daily3","ca_daily4","ca_fantasy5","ca_superlotto","powerball","megamillions"]},
+  co:{name:"Colorado", abbr:"CO", games:["co_pick3","co_cash5","co_lotto","powerball","megamillions","millionaireforlife"]},
+  ct:{name:"Connecticut", abbr:"CT", games:["ct_play3","ct_play4","ct_cash5","ct_classiclotto","powerball","megamillions","millionaireforlife"]},
+  de:{name:"Delaware", abbr:"DE", games:["de_play3","de_play4","de_play5","de_lotto","powerball","megamillions","lottoamerica"]},
+  dc:{name:"District of Columbia", abbr:"DC", games:["dc_3","dc_4","dc_5","powerball","megamillions","millionaireforlife","lottoamerica"]},
+  fl:{name:"Florida", abbr:"FL", games:["fl_pick2","fl_pick3","fl_pick4","fl_pick5","fl_fantasy5","fl_jackpottripleplay","fl_lotto","powerball","megamillions"]},
+  ga:{name:"Georgia", abbr:"GA", games:["ga_cash3","ga_cash4","ga_georgiafive","ga_fantasy5","powerball","megamillions","millionaireforlife"]},
+  id:{name:"Idaho", abbr:"ID", games:["id_pick3","id_pick4","id_idahocash","powerball","megamillions","millionaireforlife","lottoamerica"]},
+  il:{name:"Illinois", abbr:"IL", games:["il_pick3","il_pick4","il_luckydaylotto","il_lotto","powerball","megamillions"]},
+  ia:{name:"Iowa", abbr:"IA", games:["ia_pick3","ia_pick4","powerball","megamillions","millionaireforlife","lottoamerica"]},
+  ks:{name:"Kansas", abbr:"KS", games:["ks_pick3","ks_superkansas","powerball","megamillions","millionaireforlife","lottoamerica"]},
+  la:{name:"Louisiana", abbr:"LA", games:["la_pick3","la_pick4","la_pick5","la_easy5","la_lotto","powerball","megamillions"]},
+  me:{name:"Maine", abbr:"ME", games:["me_pick3","me_pick4","powerball","megamillions","millionaireforlife","lottoamerica","tristate_megabucks","tristate_gimme5"]},
+  md:{name:"Maryland", abbr:"MD", games:["md_pick3","md_pick4","md_pick5","md_bonusmatch5","md_multimatch","powerball","megamillions"]},
+  ma:{name:"Massachusetts", abbr:"MA", games:["ma_numbers","ma_mass3","ma_mass4","ma_masscash","ma_megabucks","powerball","megamillions","millionaireforlife"]},
+  mn:{name:"Minnesota", abbr:"MN", games:["mn_daily3","mn_gopher5","mn_north5","powerball","megamillions","lottoamerica"]},
+  ms:{name:"Mississippi", abbr:"MS", games:["ms_cash3","ms_cash4","ms_match5","powerball","megamillions","millionaireforlife","lottoamerica"]},
+  mo:{name:"Missouri", abbr:"MO", games:["mo_pick3","mo_pick4","mo_showme","mo_millions","powerball","megamillions"]},
+  mt:{name:"Montana", abbr:"MT", games:["mt_bigskyb","mt_cash","powerball","megamillions","millionaireforlife","lottoamerica"]},
+  ne:{name:"Nebraska", abbr:"NE", games:["ne_pick3","ne_pick5","powerball","megamillions","millionaireforlife","lottoamerica"]},
+  nh:{name:"New Hampshire", abbr:"NH", games:["nh_pick3","nh_pick4","powerball","megamillions","millionaireforlife","tristate_megabucks","tristate_gimme5"]},
+  nj:{name:"New Jersey", abbr:"NJ", games:["nj_pick3","nj_pick4","nj_cash5","nj_pick6","powerball","megamillions","millionaireforlife"]},
+  nm:{name:"New Mexico", abbr:"NM", games:["nm_pick3plus","nm_pick4plus","nm_roadrunner","powerball","megamillions","lottoamerica"]},
+  nc:{name:"North Carolina", abbr:"NC", games:["nc_pick3","nc_pick4","nc_cash5","powerball","megamillions","millionaireforlife"]},
+  nd:{name:"North Dakota", abbr:"ND", games:["powerball","megamillions","millionaireforlife","lottoamerica"]},
+  ok:{name:"Oklahoma", abbr:"OK", games:["ok_pick3","ok_cash5","powerball","megamillions","millionaireforlife","lottoamerica"]},
+  or:{name:"Oregon", abbr:"OR", games:["or_megabucks","or_winforlife","powerball","megamillions"]},
+  pr:{name:"Puerto Rico", abbr:"PR", games:["pr_pega2","pr_pega3","pr_pega4","pr_lotoplus","powerball"]},
+  ri:{name:"Rhode Island", abbr:"RI", games:["ri_numbers","ri_wildmoney","powerball","megamillions","millionaireforlife"]},
+  sc:{name:"South Carolina", abbr:"SC", games:["sc_pick3","sc_pick4","sc_palmetto5","powerball","megamillions"]},
+  sd:{name:"South Dakota", abbr:"SD", games:["sd_dakotacash","powerball","megamillions","millionaireforlife","lottoamerica"]},
+  tn:{name:"Tennessee", abbr:"TN", games:["tn_cash3","tn_cash4","tn_tncash","tn_dailyjackpot","powerball","megamillions","millionaireforlife","lottoamerica"]},
+  tx:{name:"Texas", abbr:"TX", games:["tx_cashfive","tx_lottotexas","tx_twostep","powerball","megamillions"]},
+  vt:{name:"Vermont", abbr:"VT", games:["vt_pick3","vt_pick4","powerball","megamillions","millionaireforlife","tristate_megabucks","tristate_gimme5"]},
+  va:{name:"Virginia", abbr:"VA", games:["va_pick3","va_pick4","va_pick5","va_cash5","va_bankamillion","powerball","megamillions","millionaireforlife"]},
+  wa:{name:"Washington", abbr:"WA", games:["wa_daily","wa_hit5","wa_match4","wa_lotto","powerball","megamillions"]},
+  wi:{name:"Wisconsin", abbr:"WI", games:["wi_pick3","wi_pick4","wi_badger5","wi_supercash","wi_megabucks","powerball","megamillions"]},
+  wy:{name:"Wyoming", abbr:"WY", games:["wy_cowboydraw","powerball","megamillions","millionaireforlife"]},
+  vi:{name:"U.S. Virgin Islands", abbr:"VI", games:["powerball"]},
 };
 /* Jurisdictions with a lottery but no working data source yet — shown in
    the picker as coming soon, never with fake draws. */
-const COMING_SOON = [
-  {key:"az", name:"Arizona", abbr:"AZ"},{key:"ar", name:"Arkansas", abbr:"AR"},
-  {key:"ca", name:"California", abbr:"CA"},{key:"co", name:"Colorado", abbr:"CO"},
-  {key:"ct", name:"Connecticut", abbr:"CT"},{key:"de", name:"Delaware", abbr:"DE"},
-  {key:"dc", name:"District of Columbia", abbr:"DC"},{key:"fl", name:"Florida", abbr:"FL"},
-  {key:"ga", name:"Georgia", abbr:"GA"},{key:"id", name:"Idaho", abbr:"ID"},
-  {key:"il", name:"Illinois", abbr:"IL"},{key:"ia", name:"Iowa", abbr:"IA"},
-  {key:"ks", name:"Kansas", abbr:"KS"},{key:"la", name:"Louisiana", abbr:"LA"},
-  {key:"me", name:"Maine", abbr:"ME"},{key:"md", name:"Maryland", abbr:"MD"},
-  {key:"ma", name:"Massachusetts", abbr:"MA"},{key:"mn", name:"Minnesota", abbr:"MN"},
-  {key:"mo", name:"Missouri", abbr:"MO"},{key:"ms", name:"Mississippi", abbr:"MS"},
-  {key:"mt", name:"Montana", abbr:"MT"},{key:"ne", name:"Nebraska", abbr:"NE"},
-  {key:"nh", name:"New Hampshire", abbr:"NH"},{key:"nj", name:"New Jersey", abbr:"NJ"},
-  {key:"nm", name:"New Mexico", abbr:"NM"},{key:"nc", name:"North Carolina", abbr:"NC"},
-  {key:"nd", name:"North Dakota", abbr:"ND"},{key:"ok", name:"Oklahoma", abbr:"OK"},
-  {key:"or", name:"Oregon", abbr:"OR"},{key:"ri", name:"Rhode Island", abbr:"RI"},
-  {key:"sc", name:"South Carolina", abbr:"SC"},{key:"sd", name:"South Dakota", abbr:"SD"},
-  {key:"tn", name:"Tennessee", abbr:"TN"},{key:"tx", name:"Texas", abbr:"TX"},
-  {key:"vt", name:"Vermont", abbr:"VT"},{key:"va", name:"Virginia", abbr:"VA"},
-  {key:"wa", name:"Washington", abbr:"WA"},{key:"wi", name:"Wisconsin", abbr:"WI"},
-  {key:"wy", name:"Wyoming", abbr:"WY"},{key:"pr", name:"Puerto Rico", abbr:"PR"},
-  {key:"vi", name:"U.S. Virgin Islands", abbr:"VI"}
-];
+/* Phase 3 (Nov 2026): every lottery jurisdiction is live now,
+   so there is nothing coming soon. The list stays as an empty array
+   (the picker renders no disabled entries) rather than being deleted,
+   so a future jurisdiction can be added back in one place. */
+const COMING_SOON = [];
 /* States with no state lottery at all — a ZIP there gets an honest note. */
 const NO_LOTTERY = {AL:"Alabama", AK:"Alaska", HI:"Hawaii", NV:"Nevada", UT:"Utah"};
 const ZIP_STATE = {"005":"NY","006":"PR","007":"PR","008":"VI","009":"PR","010":"MA","011":"MA","012":"MA","013":"MA","014":"MA","015":"MA","016":"MA","017":"MA","018":"MA","019":"MA","020":"MA","021":"MA","022":"MA","023":"MA","024":"MA","025":"MA","026":"MA","027":"MA","028":"RI","029":"RI","030":"NH","031":"NH","032":"NH","033":"NH","034":"NH","035":"NH","036":"NH","037":"NH","038":"NH","039":"ME","040":"ME","041":"ME","042":"ME","043":"ME","044":"ME","045":"ME","046":"ME","047":"ME","048":"ME","049":"ME","050":"VT","051":"VT","052":"VT","053":"VT","054":"VT","055":"MA","056":"VT","057":"VT","058":"VT","059":"VT","060":"CT","061":"CT","062":"CT","063":"CT","064":"CT","065":"CT","066":"CT","067":"CT","068":"CT","069":"CT","070":"NJ","071":"NJ","072":"NJ","073":"NJ","074":"NJ","075":"NJ","076":"NJ","077":"NJ","078":"NJ","079":"NJ","080":"NJ","081":"NJ","082":"NJ","083":"NJ","084":"NJ","085":"NJ","086":"NJ","087":"NJ","088":"NJ","089":"NJ","090":"","091":"","092":"","093":"","094":"","095":"","096":"","097":"","098":"","100":"NY","101":"NY","102":"NY","103":"NY","104":"NY","105":"NY","106":"NY","107":"NY","108":"NY","109":"NY","110":"NY","111":"NY","112":"NY","113":"NY","114":"NY","115":"NY","116":"NY","117":"NY","118":"NY","119":"NY","120":"NY","121":"NY","122":"NY","123":"NY","124":"NY","125":"NY","126":"NY","127":"NY","128":"NY","129":"NY","130":"NY","131":"NY","132":"NY","133":"NY","134":"NY","135":"NY","136":"NY","137":"NY","138":"NY","139":"NY","140":"NY","141":"NY","142":"NY","143":"NY","144":"NY","145":"NY","146":"NY","147":"NY","148":"NY","149":"NY","150":"PA","151":"PA","152":"PA","153":"PA","154":"PA","155":"PA","156":"PA","157":"PA","158":"PA","159":"PA","160":"PA","161":"PA","162":"PA","163":"PA","164":"PA","165":"PA","166":"PA","167":"PA","168":"PA","169":"PA","170":"PA","171":"PA","172":"PA","173":"PA","174":"PA","175":"PA","176":"PA","177":"PA","178":"PA","179":"PA","180":"PA","181":"PA","182":"PA","183":"PA","184":"PA","185":"PA","186":"PA","187":"PA","188":"PA","189":"PA","190":"PA","191":"PA","192":"PA","193":"PA","194":"PA","195":"PA","196":"PA","197":"DE","198":"DE","199":"DE","200":"DC","201":"VA","202":"DC","203":"DC","204":"DC","205":"DC","206":"MD","207":"MD","208":"MD","209":"MD","210":"MD","211":"MD","212":"MD","214":"MD","215":"MD","216":"MD","217":"MD","218":"MD","219":"MD","220":"VA","221":"VA","222":"VA","223":"VA","224":"VA","225":"VA","226":"VA","227":"VA","228":"VA","229":"VA","230":"VA","231":"VA","232":"VA","233":"VA","234":"VA","235":"VA","236":"VA","237":"VA","238":"VA","239":"VA","240":"VA","241":"VA","242":"VA","243":"VA","244":"VA","245":"VA","246":"VA","247":"WV","248":"WV","249":"WV","250":"WV","251":"WV","252":"WV","253":"WV","254":"WV","255":"WV","256":"WV","257":"WV","258":"WV","259":"WV","260":"WV","261":"WV","262":"WV","263":"WV","264":"WV","265":"WV","266":"WV","267":"WV","268":"WV","270":"NC","271":"NC","272":"NC","273":"NC","274":"NC","275":"NC","276":"NC","277":"NC","278":"NC","279":"NC","280":"NC","281":"NC","282":"NC","283":"NC","284":"NC","285":"NC","286":"NC","287":"NC","288":"NC","289":"NC","290":"SC","291":"SC","292":"SC","293":"SC","294":"SC","295":"SC","296":"SC","297":"SC","298":"SC","299":"SC","300":"GA","301":"GA","302":"GA","303":"GA","304":"GA","305":"GA","306":"GA","307":"GA","308":"GA","309":"GA","310":"GA","311":"GA","312":"GA","313":"GA","314":"GA","315":"GA","316":"GA","317":"GA","318":"GA","319":"GA","320":"FL","321":"FL","322":"FL","323":"FL","324":"FL","325":"FL","326":"FL","327":"FL","328":"FL","329":"FL","330":"FL","331":"FL","332":"FL","333":"FL","334":"FL","335":"FL","336":"FL","337":"FL","338":"FL","339":"FL","340":"","341":"FL","342":"FL","344":"FL","346":"FL","347":"FL","349":"FL","350":"AL","351":"AL","352":"AL","354":"AL","355":"AL","356":"AL","357":"AL","358":"AL","359":"AL","360":"AL","361":"AL","362":"AL","363":"AL","364":"AL","365":"AL","366":"AL","367":"AL","368":"AL","369":"AL","370":"TN","371":"TN","372":"TN","373":"TN","374":"TN","375":"TN","376":"TN","377":"TN","378":"TN","379":"TN","380":"TN","381":"TN","382":"TN","383":"TN","384":"TN","385":"TN","386":"MS","387":"MS","388":"MS","389":"MS","390":"MS","391":"MS","392":"MS","393":"MS","394":"MS","395":"MS","396":"MS","397":"MS","398":"GA","399":"GA","400":"KY","401":"KY","402":"KY","403":"KY","404":"KY","405":"KY","406":"KY","407":"KY","408":"KY","409":"KY","410":"KY","411":"KY","412":"KY","413":"KY","414":"KY","415":"KY","416":"KY","417":"KY","418":"KY","420":"KY","421":"KY","422":"KY","423":"KY","424":"KY","425":"KY","426":"KY","427":"KY","430":"OH","431":"OH","432":"OH","433":"OH","434":"OH","435":"OH","436":"OH","437":"OH","438":"OH","439":"OH","440":"OH","441":"OH","442":"OH","443":"OH","444":"OH","445":"OH","446":"OH","447":"OH","448":"OH","449":"OH","450":"OH","451":"OH","452":"OH","453":"OH","454":"OH","455":"OH","456":"OH","457":"OH","458":"OH","459":"OH","460":"IN","461":"IN","462":"IN","463":"IN","464":"IN","465":"IN","466":"IN","467":"IN","468":"IN","469":"IN","470":"IN","471":"IN","472":"IN","473":"IN","474":"IN","475":"IN","476":"IN","477":"IN","478":"IN","479":"IN","480":"MI","481":"MI","482":"MI","483":"MI","484":"MI","485":"MI","486":"MI","487":"MI","488":"MI","489":"MI","490":"MI","491":"MI","492":"MI","493":"MI","494":"MI","495":"MI","496":"MI","497":"MI","498":"MI","499":"MI","500":"IA","501":"IA","502":"IA","503":"IA","504":"IA","505":"IA","506":"IA","507":"IA","508":"IA","509":"IA","510":"IA","511":"IA","512":"IA","513":"IA","514":"IA","515":"IA","516":"IA","520":"IA","521":"IA","522":"IA","523":"IA","524":"IA","525":"IA","526":"IA","527":"IA","528":"IA","530":"WI","531":"WI","532":"WI","534":"WI","535":"WI","537":"WI","538":"WI","539":"WI","540":"WI","541":"WI","542":"WI","543":"WI","544":"WI","545":"WI","546":"WI","547":"WI","548":"WI","549":"WI","550":"MN","551":"MN","553":"MN","554":"MN","555":"MN","556":"MN","557":"MN","558":"MN","559":"MN","560":"MN","561":"MN","562":"MN","563":"MN","564":"MN","565":"MN","566":"MN","567":"MN","569":"DC","570":"SD","571":"SD","572":"SD","573":"SD","574":"SD","575":"SD","576":"SD","577":"SD","580":"ND","581":"ND","582":"ND","583":"ND","584":"ND","585":"ND","586":"ND","587":"ND","588":"ND","590":"MT","591":"MT","592":"MT","593":"MT","594":"MT","595":"MT","596":"MT","597":"MT","598":"MT","599":"MT","600":"IL","601":"IL","602":"IL","603":"IL","604":"IL","605":"IL","606":"IL","607":"IL","608":"IL","609":"IL","610":"IL","611":"IL","612":"IL","613":"IL","614":"IL","615":"IL","616":"IL","617":"IL","618":"IL","619":"IL","620":"IL","622":"IL","623":"IL","624":"IL","625":"IL","626":"IL","627":"IL","628":"IL","629":"IL","630":"MO","631":"MO","633":"MO","634":"MO","635":"MO","636":"MO","637":"MO","638":"MO","639":"MO","640":"MO","641":"MO","644":"MO","645":"MO","646":"MO","647":"MO","648":"MO","649":"MO","650":"MO","651":"MO","652":"MO","653":"MO","654":"MO","655":"MO","656":"MO","657":"MO","658":"MO","660":"KS","661":"KS","662":"KS","664":"KS","665":"KS","666":"KS","667":"KS","668":"KS","669":"KS","670":"KS","671":"KS","672":"KS","673":"KS","674":"KS","675":"KS","676":"KS","677":"KS","678":"KS","679":"KS","680":"NE","681":"NE","683":"NE","684":"NE","685":"NE","686":"NE","687":"NE","688":"NE","689":"NE","690":"NE","691":"NE","692":"NE","693":"NE","700":"LA","701":"LA","703":"LA","704":"LA","705":"LA","706":"LA","707":"LA","708":"LA","710":"LA","711":"LA","712":"LA","713":"LA","714":"LA","716":"AR","717":"AR","718":"AR","719":"AR","720":"AR","721":"AR","722":"AR","723":"AR","724":"AR","725":"AR","726":"AR","727":"AR","728":"AR","729":"AR","730":"OK","731":"OK","733":"TX","734":"OK","735":"OK","736":"OK","737":"OK","738":"OK","739":"OK","740":"OK","741":"OK","743":"OK","744":"OK","745":"OK","746":"OK","747":"OK","748":"OK","749":"OK","750":"TX","751":"TX","752":"TX","753":"TX","754":"TX","755":"TX","756":"TX","757":"TX","758":"TX","759":"TX","760":"TX","761":"TX","762":"TX","763":"TX","764":"TX","765":"TX","766":"TX","767":"TX","768":"TX","769":"TX","770":"TX","772":"TX","773":"TX","774":"TX","775":"TX","776":"TX","777":"TX","778":"TX","779":"TX","780":"TX","781":"TX","782":"TX","783":"TX","784":"TX","785":"TX","786":"TX","787":"TX","788":"TX","789":"TX","790":"TX","791":"TX","792":"TX","793":"TX","794":"TX","795":"TX","796":"TX","797":"TX","798":"TX","799":"TX","800":"CO","801":"CO","802":"CO","803":"CO","804":"CO","805":"CO","806":"CO","807":"CO","808":"CO","809":"CO","810":"CO","811":"CO","812":"CO","813":"CO","814":"CO","815":"CO","816":"CO","820":"WY","821":"WY","822":"WY","823":"WY","824":"WY","825":"WY","826":"WY","827":"WY","828":"WY","829":"WY","830":"WY","831":"WY","832":"ID","833":"ID","834":"ID","835":"ID","836":"ID","837":"ID","838":"ID","840":"UT","841":"UT","842":"UT","843":"UT","844":"UT","845":"UT","846":"UT","847":"UT","850":"AZ","851":"AZ","852":"AZ","853":"AZ","855":"AZ","856":"AZ","857":"AZ","859":"AZ","860":"AZ","863":"AZ","864":"AZ","865":"AZ","870":"NM","871":"NM","873":"NM","874":"NM","875":"NM","876":"NM","877":"NM","878":"NM","879":"NM","880":"NM","881":"NM","882":"NM","883":"NM","884":"NM","885":"TX","889":"NV","890":"NV","891":"NV","893":"NV","894":"NV","895":"NV","897":"NV","898":"NV","900":"CA","901":"CA","902":"CA","903":"CA","904":"CA","905":"CA","906":"CA","907":"CA","908":"CA","910":"CA","911":"CA","912":"CA","913":"CA","914":"CA","915":"CA","916":"CA","917":"CA","918":"CA","919":"CA","920":"CA","921":"CA","922":"CA","923":"CA","924":"CA","925":"CA","926":"CA","927":"CA","928":"CA","930":"CA","931":"CA","932":"CA","933":"CA","934":"CA","935":"CA","936":"CA","937":"CA","938":"CA","939":"CA","940":"CA","941":"CA","942":"CA","943":"CA","944":"CA","945":"CA","946":"CA","947":"CA","948":"CA","949":"CA","950":"CA","951":"CA","952":"CA","953":"CA","954":"CA","955":"CA","956":"CA","957":"CA","958":"CA","959":"CA","960":"CA","961":"CA","962":"","963":"","964":"","965":"","967":"HI","968":"HI","969":"MH","970":"OR","971":"OR","972":"OR","973":"OR","974":"OR","975":"OR","976":"OR","977":"OR","978":"OR","979":"OR","980":"WA","981":"WA","982":"WA","983":"WA","984":"WA","985":"WA","986":"WA","988":"WA","989":"WA","990":"WA","991":"WA","992":"WA","993":"WA","994":"WA","995":"AK","996":"AK","997":"AK","998":"AK","999":"AK"};
@@ -1065,10 +1267,7 @@ function drawDateTime(gameKey, draw, sameDayIndex){
   const dow = new Date(draw.date + "T12:00:00").getDay();
   const times = (g.sched || []).filter(s => s.days.includes(dow)).map(s => s.draw).sort();
   const t = times.length ? times[Math.min(sameDayIndex, times.length - 1)] : "23:59";
-  const [h, m] = t.split(":").map(Number);
-  const d = new Date(draw.date + "T00:00:00");
-  d.setHours(h, m, 0, 0);
-  return d;
+  return zonedInstant(draw.date, t, g.tz || "America/New_York");
 }
 /* Eligible draws: strictly after the saved date, plus same-date draws whose
    scheduled draw time is after the moment the slip was saved. */
@@ -1360,6 +1559,36 @@ $("keepBtn").onclick = () => {
   setTimeout(() => $("keepBtn").textContent = "Keep this slip", 1200);
 };
 
+/* Time zones (Phase 3): draw/cutoff times in GAMES are the game's LOCAL
+   wall-clock times as the lottery publishes them, and game.tz is the IANA
+   zone they live in (default America/New_York — all Phase 1/2 games are ET).
+   These helpers turn a game-local date + wall time into an absolute instant,
+   so countdowns and slip eligibility stay correct for CT/MT/PT/AST games
+   and for viewers outside ET. Display (fmtClock/dayWord) still uses the
+   viewer's local time, so an ET viewer sees a 1 PM PT draw as 4 PM. */
+function tzOffsetMs(tz, date){
+  const dtf = new Intl.DateTimeFormat("en-US", {timeZone: tz, hourCycle: "h23",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit"});
+  const p = dtf.formatToParts(date);
+  const get = t => Number(p.find(x => x.type === t).value);
+  const asUTC = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
+  return asUTC - date.getTime();
+}
+function zonedInstant(dateStr, hhmm, tz){
+  const [y, mo, d] = dateStr.split("-").map(Number);
+  const [h, mi] = hhmm.split(":").map(Number);
+  const wallAsUTC = Date.UTC(y, mo - 1, d, h, mi, 0);
+  let utc = wallAsUTC - tzOffsetMs(tz, new Date(wallAsUTC));
+  utc = wallAsUTC - tzOffsetMs(tz, new Date(utc));  // refine once (DST edges)
+  return new Date(utc);
+}
+function todayInZone(tz){
+  const p = new Intl.DateTimeFormat("en-CA", {timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit"}).formatToParts(new Date());
+  const get = t => p.find(x => x.type === t).value;
+  return get("year") + "-" + get("month") + "-" + get("day");
+}
+
 function fmtClock(dt){
   let h = dt.getHours(), m = dt.getMinutes();
   const ap = h >= 12 ? "PM" : "AM"; h = h % 12 || 12;
@@ -1384,18 +1613,23 @@ function renderCutoff(){
   const g = GAMES[game], el = $("cutoffLine");
   if (!g.sched){ el.textContent = ""; return; }
   const now = new Date();
+  const tz = g.tz || "America/New_York";
+  /* Iterate game-local calendar days (not the viewer's days): a late
+     PT draw can fall on the viewer's next calendar day, and vice versa. */
+  const todayStr = todayInZone(tz);
+  const base = new Date(todayStr + "T12:00:00");
   const inst = [];
   for (let off = 0; off < 9; off++){
-    const d = new Date(now); d.setDate(d.getDate()+off);
+    const d = new Date(base); d.setDate(d.getDate()+off);
+    const dateStr = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    const dow = d.getDay();
     g.sched.forEach(s => {
-      if (!s.days.includes(d.getDay())) return;
-      const [dh, dm] = s.draw.split(":").map(Number);
-      const draw = new Date(d); draw.setHours(dh, dm, 0, 0);
+      if (!s.days.includes(dow)) return;
+      const draw = zonedInstant(dateStr, s.draw, tz);
       // cutoff null means the sales cutoff isn't published for this game
       // (Kentucky): sales close at the draw itself, and the line says so.
-      const cut = (d.getDay() === 6 && s.satCutoff) ? s.satCutoff : (s.cutoff || s.draw);
-      const [ch, cm] = cut.split(":").map(Number);
-      const cutoff = new Date(d); cutoff.setHours(ch, cm, 0, 0);
+      const cut = (dow === 6 && s.satCutoff) ? s.satCutoff : (s.cutoff || s.draw);
+      const cutoff = zonedInstant(dateStr, cut, tz);
       inst.push({draw, cutoff, label: s.label || "", cutoffKnown: !!s.cutoff});
     });
   }

@@ -77,6 +77,179 @@ RULES = {
     'wv_daily3': (3, 9, False, None, False),
     'wv_daily4': (4, 9, False, None, False),
     'wv_cash25': (6, 25, False, None, True),
+    # --- Phase 3: Arizona (LotteryUSA) ---
+    'az_fantasy5': (5, 41, False, None, True),
+    'az_pick3': (3, 9, False, None, False),
+    'az_pick4': (4, 9, False, None, False),
+    'az_thepick': (6, 40, False, None, True),
+    'az_tripletwist': (6, 42, False, None, True),
+    # --- Phase 3: Arkansas (LotteryUSA) ---
+    'ar_cash3': (3, 9, False, None, False),
+    'ar_cash4': (4, 9, False, None, False),
+    'ar_lotto': (6, 40, True, 40, True),
+    'ar_naturalstate': (5, 39, False, None, True),
+    # --- Phase 3: California (LotteryUSA) ---
+    'ca_daily3': (3, 9, False, None, False),
+    'ca_daily4': (4, 9, False, None, False),
+    'ca_fantasy5': (5, 39, False, None, True),
+    'ca_superlotto': (5, 47, True, 27, True),
+    # --- Phase 3: Colorado (LotteryUSA) ---
+    'co_cash5': (5, 32, False, None, True),
+    'co_lotto': (6, 40, False, None, True),
+    'co_pick3': (3, 9, False, None, False),
+    # --- Phase 3: Connecticut (LotteryUSA) ---
+    'ct_cash5': (5, 35, False, None, True),
+    'ct_classiclotto': (6, 44, False, None, True),
+    'ct_play3': (3, 9, False, None, False),
+    'ct_play4': (4, 9, False, None, False),
+    # --- Phase 3: Delaware (LotteryUSA) ---
+    'de_lotto': (6, 35, False, None, True),
+    'de_play3': (3, 9, False, None, False),
+    'de_play4': (4, 9, False, None, False),
+    'de_play5': (5, 9, False, None, False),
+    # --- Phase 3: District of Columbia (LotteryUSA) ---
+    'dc_3': (3, 9, False, None, False),
+    'dc_4': (4, 9, False, None, False),
+    'dc_5': (5, 9, False, None, False),
+    # --- Phase 3: Florida (LotteryUSA) ---
+    'fl_fantasy5': (5, 36, False, None, True),
+    'fl_jackpottripleplay': (6, 46, False, None, True),
+    'fl_lotto': (6, 53, False, None, True),
+    'fl_pick2': (2, 9, False, None, False),
+    'fl_pick3': (3, 9, False, None, False),
+    'fl_pick4': (4, 9, False, None, False),
+    'fl_pick5': (5, 9, False, None, False),
+    # --- Phase 3: Georgia (LotteryUSA) ---
+    'ga_cash3': (3, 9, False, None, False),
+    'ga_cash4': (4, 9, False, None, False),
+    'ga_fantasy5': (5, 42, False, None, True),
+    'ga_georgiafive': (5, 9, False, None, False),
+    # --- Phase 3: Idaho (LotteryUSA) ---
+    'id_idahocash': (5, 45, False, None, True),
+    'id_pick3': (3, 9, False, None, False),
+    'id_pick4': (4, 9, False, None, False),
+    # --- Phase 3: Illinois (LotteryUSA) ---
+    'il_lotto': (6, 50, True, 25, True),
+    'il_luckydaylotto': (5, 45, False, None, True),
+    'il_pick3': (3, 9, False, None, False),
+    'il_pick4': (4, 9, False, None, False),
+    # --- Phase 3: Iowa (LotteryUSA) ---
+    'ia_pick3': (3, 9, False, None, False),
+    'ia_pick4': (4, 9, False, None, False),
+    # --- Phase 3: Kansas (LotteryUSA) ---
+    'ks_pick3': (3, 9, False, None, False),
+    'ks_superkansas': (5, 32, True, 25, True),
+    # --- Phase 3: Louisiana (LotteryUSA) ---
+    'la_easy5': (5, 37, False, None, True),
+    'la_lotto': (6, 42, False, None, True),
+    'la_pick3': (3, 9, False, None, False),
+    'la_pick4': (4, 9, False, None, False),
+    'la_pick5': (5, 9, False, None, False),
+    # --- Phase 3: Maine (LotteryUSA) ---
+    'me_pick3': (3, 9, False, None, False),
+    'me_pick4': (4, 9, False, None, False),
+    # --- Phase 3: Maryland (LotteryUSA) ---
+    'md_bonusmatch5': (5, 39, True, 39, True),
+    'md_multimatch': (6, 43, False, None, True),
+    'md_pick3': (3, 9, False, None, False),
+    'md_pick4': (4, 9, False, None, False),
+    'md_pick5': (5, 9, False, None, False),
+    # --- Phase 3: Massachusetts (LotteryUSA) ---
+    'ma_mass3': (3, 9, False, None, False),
+    'ma_mass4': (4, 9, False, None, False),
+    'ma_masscash': (5, 35, False, None, True),
+    'ma_megabucks': (6, 44, False, None, True),
+    'ma_numbers': (4, 9, False, None, False),
+    # --- Phase 3: Minnesota (LotteryUSA) ---
+    'mn_daily3': (3, 9, False, None, False),
+    'mn_gopher5': (5, 47, False, None, True),
+    'mn_north5': (5, 34, False, None, True),
+    # --- Phase 3: Mississippi (LotteryUSA) ---
+    'ms_cash3': (3, 9, False, None, False),
+    'ms_cash4': (4, 9, False, None, False),
+    'ms_match5': (5, 35, False, None, True),
+    # --- Phase 3: Missouri (LotteryUSA) ---
+    'mo_millions': (5, 42, True, 42, True),
+    'mo_pick3': (3, 9, False, None, False),
+    'mo_pick4': (4, 9, False, None, False),
+    'mo_showme': (5, 39, False, None, True),
+    # --- Phase 3: Montana (LotteryUSA) ---
+    'mt_bigskyb': (4, 31, True, 16, True),
+    'mt_cash': (5, 45, False, None, True),
+    # --- Phase 3: Nebraska (LotteryUSA) ---
+    'ne_pick3': (3, 9, False, None, False),
+    'ne_pick5': (5, 40, False, None, True),
+    # --- Phase 3: New Hampshire (LotteryUSA) ---
+    'nh_pick3': (3, 9, False, None, False),
+    'nh_pick4': (4, 9, False, None, False),
+    # --- Phase 3: New Jersey (LotteryUSA) ---
+    'nj_cash5': (5, 45, False, None, True),
+    'nj_pick3': (3, 9, False, None, False),
+    'nj_pick4': (4, 9, False, None, False),
+    'nj_pick6': (6, 46, False, None, True),
+    # --- Phase 3: New Mexico (LotteryUSA) ---
+    'nm_pick3plus': (3, 9, False, None, False),
+    'nm_pick4plus': (4, 9, False, None, False),
+    'nm_roadrunner': (5, 37, False, None, True),
+    # --- Phase 3: North Carolina (LotteryUSA) ---
+    'nc_cash5': (5, 43, False, None, True),
+    'nc_pick3': (3, 9, False, None, False),
+    'nc_pick4': (4, 9, False, None, False),
+    # --- Phase 3: Oklahoma (LotteryUSA) ---
+    'ok_cash5': (5, 36, False, None, True),
+    'ok_pick3': (3, 9, False, None, False),
+    # --- Phase 3: Oregon (LotteryUSA) ---
+    'or_megabucks': (6, 48, False, None, True),
+    'or_winforlife': (4, 77, False, None, True),
+    # --- Phase 3: Puerto Rico (LotteryUSA) ---
+    'pr_lotoplus': (5, 35, True, 10, True),
+    'pr_pega2': (2, 9, False, None, False),
+    'pr_pega3': (3, 9, False, None, False),
+    'pr_pega4': (4, 9, False, None, False),
+    # --- Phase 3: Rhode Island (LotteryUSA) ---
+    'ri_numbers': (4, 9, False, None, False),
+    'ri_wildmoney': (5, 38, True, 38, True),
+    # --- Phase 3: South Carolina (LotteryUSA) ---
+    'sc_palmetto5': (5, 42, False, None, True),
+    'sc_pick3': (3, 9, False, None, False),
+    'sc_pick4': (4, 9, False, None, False),
+    # --- Phase 3: South Dakota (LotteryUSA) ---
+    'sd_dakotacash': (5, 35, False, None, True),
+    # --- Phase 3: Tennessee (LotteryUSA) ---
+    'tn_cash3': (3, 9, False, None, False),
+    'tn_cash4': (4, 9, False, None, False),
+    'tn_dailyjackpot': (5, 38, False, None, True),
+    'tn_tncash': (5, 35, True, 5, True),
+    # --- Phase 3: Texas (LotteryUSA) ---
+    'tx_cashfive': (5, 35, False, None, True),
+    'tx_lottotexas': (6, 54, False, None, True),
+    'tx_twostep': (4, 35, True, 35, True),
+    # --- Phase 3: Vermont (LotteryUSA) ---
+    'vt_pick3': (3, 9, False, None, False),
+    'vt_pick4': (4, 9, False, None, False),
+    # --- Phase 3: Virginia (LotteryUSA) ---
+    'va_bankamillion': (6, 40, True, 40, True),
+    'va_cash5': (5, 45, False, None, True),
+    'va_pick3': (3, 9, False, None, False),
+    'va_pick4': (4, 9, False, None, False),
+    'va_pick5': (5, 9, False, None, False),
+    # --- Phase 3: Washington (LotteryUSA) ---
+    'wa_daily': (3, 9, False, None, False),
+    'wa_hit5': (5, 42, False, None, True),
+    'wa_lotto': (6, 49, False, None, True),
+    'wa_match4': (4, 24, False, None, True),
+    # --- Phase 3: Wisconsin (LotteryUSA) ---
+    'wi_badger5': (5, 31, False, None, True),
+    'wi_megabucks': (6, 49, False, None, True),
+    'wi_pick3': (3, 9, False, None, False),
+    'wi_pick4': (4, 9, False, None, False),
+    'wi_supercash': (6, 39, False, None, True),
+    # --- Phase 3: Wyoming (LotteryUSA) ---
+    'wy_cowboydraw': (5, 45, False, None, True),
+    # --- Phase 3: Shared games (LotteryUSA) ---
+    'lottoamerica': (5, 52, True, 10, True),
+    'tristate_gimme5': (5, 39, False, None, True),
+    'tristate_megabucks': (5, 41, True, 6, True),
 }
 
 # Digit games (positional, 0-9 per position). Everything else draws 1..max.
@@ -84,7 +257,8 @@ DIGITS = {'pick3', 'pick4', 'pick5', 'ny_numbers', 'ny_win4',
           'pa_pick2', 'pa_pick3', 'pa_pick4', 'pa_pick5',
           'mi_daily3', 'mi_daily4', 'mi_daily5',
           'in_daily3', 'in_daily4', 'ky_pick3', 'ky_pick4',
-          'wv_daily3', 'wv_daily4'}
+          'wv_daily3', 'wv_daily4',
+          'ar_cash3', 'ar_cash4', 'az_pick3', 'az_pick4', 'ca_daily3', 'ca_daily4', 'co_pick3', 'ct_play3', 'ct_play4', 'dc_3', 'dc_4', 'dc_5', 'de_play3', 'de_play4', 'de_play5', 'fl_pick2', 'fl_pick3', 'fl_pick4', 'fl_pick5', 'ga_cash3', 'ga_cash4', 'ga_georgiafive', 'ia_pick3', 'ia_pick4', 'id_pick3', 'id_pick4', 'il_pick3', 'il_pick4', 'ks_pick3', 'la_pick3', 'la_pick4', 'la_pick5', 'ma_mass3', 'ma_mass4', 'ma_numbers', 'md_pick3', 'md_pick4', 'md_pick5', 'me_pick3', 'me_pick4', 'mn_daily3', 'mo_pick3', 'mo_pick4', 'ms_cash3', 'ms_cash4', 'nc_pick3', 'nc_pick4', 'ne_pick3', 'nh_pick3', 'nh_pick4', 'nj_pick3', 'nj_pick4', 'nm_pick3plus', 'nm_pick4plus', 'ok_pick3', 'pr_pega2', 'pr_pega3', 'pr_pega4', 'ri_numbers', 'sc_pick3', 'sc_pick4', 'tn_cash3', 'tn_cash4', 'va_pick3', 'va_pick4', 'va_pick5', 'vt_pick3', 'vt_pick4', 'wa_daily', 'wi_pick3', 'wi_pick4'}
 
 SOCRATA = {
     'megamillions': ('5xaw-6ayf', 'mega_ball'),
@@ -160,18 +334,200 @@ LUSA = {  # game -> list of (slot, url); slot None for single-draw games
     'wv_daily3': [(None, 'https://www.lotteryusa.com/west-virginia/daily-3/year')],
     'wv_daily4': [(None, 'https://www.lotteryusa.com/west-virginia/daily-4/year')],
     'wv_cash25': [(None, 'https://www.lotteryusa.com/west-virginia/cash-25/year')],
+    # --- Phase 3: Arizona ---
+    'az_fantasy5': [(None, 'https://www.lotteryusa.com/arizona/fantasy-5/year')],
+    'az_pick3': [('midday', 'https://www.lotteryusa.com/arizona/pick-3-midday/year'), ('evening', 'https://www.lotteryusa.com/arizona/pick-3/year')],
+    'az_pick4': [('midday', 'https://www.lotteryusa.com/arizona/pick-4-midday/year'), ('evening', 'https://www.lotteryusa.com/arizona/pick-4/year')],
+    'az_thepick': [(None, 'https://www.lotteryusa.com/arizona/the-pick/year')],
+    'az_tripletwist': [(None, 'https://www.lotteryusa.com/arizona/triple-twist/year')],
+    # --- Phase 3: Arkansas ---
+    'ar_cash3': [('midday', 'https://www.lotteryusa.com/arkansas/midday-cash-3/year'), ('evening', 'https://www.lotteryusa.com/arkansas/cash-3/year')],
+    'ar_cash4': [('midday', 'https://www.lotteryusa.com/arkansas/midday-cash-4/year'), ('evening', 'https://www.lotteryusa.com/arkansas/cash-4/year')],
+    'ar_lotto': [(None, 'https://www.lotteryusa.com/arkansas/lotto/year')],
+    'ar_naturalstate': [(None, 'https://www.lotteryusa.com/arkansas/natural-state-jackpot/year')],
+    # --- Phase 3: California ---
+    'ca_daily3': [('midday', 'https://www.lotteryusa.com/california/midday-3/year'), ('evening', 'https://www.lotteryusa.com/california/daily-3/year')],
+    'ca_daily4': [(None, 'https://www.lotteryusa.com/california/daily-4/year')],
+    'ca_fantasy5': [(None, 'https://www.lotteryusa.com/california/fantasy-5/year')],
+    'ca_superlotto': [(None, 'https://www.lotteryusa.com/california/super-lotto-plus/year')],
+    # --- Phase 3: Colorado ---
+    'co_cash5': [(None, 'https://www.lotteryusa.com/colorado/cash-5/year')],
+    'co_lotto': [(None, 'https://www.lotteryusa.com/colorado/lotto/year')],
+    'co_pick3': [('midday', 'https://www.lotteryusa.com/colorado/pick-3-midday/year'), ('evening', 'https://www.lotteryusa.com/colorado/pick-3/year')],
+    # --- Phase 3: Connecticut ---
+    'ct_cash5': [(None, 'https://www.lotteryusa.com/connecticut/cash-5/year')],
+    'ct_classiclotto': [(None, 'https://www.lotteryusa.com/connecticut/classic-lotto/year')],
+    'ct_play3': [('midday', 'https://www.lotteryusa.com/connecticut/midday-3/year'), ('evening', 'https://www.lotteryusa.com/connecticut/play-3/year')],
+    'ct_play4': [('midday', 'https://www.lotteryusa.com/connecticut/midday-4/year'), ('evening', 'https://www.lotteryusa.com/connecticut/play-4/year')],
+    # --- Phase 3: Delaware ---
+    'de_lotto': [(None, 'https://www.lotteryusa.com/delaware/lotto/year')],
+    'de_play3': [('midday', 'https://www.lotteryusa.com/delaware/play-3-midday/year'), ('evening', 'https://www.lotteryusa.com/delaware/play-3/year')],
+    'de_play4': [('midday', 'https://www.lotteryusa.com/delaware/play-4-midday/year'), ('evening', 'https://www.lotteryusa.com/delaware/play-4/year')],
+    'de_play5': [('midday', 'https://www.lotteryusa.com/delaware/play-5-midday/year'), ('evening', 'https://www.lotteryusa.com/delaware/play-5/year')],
+    # --- Phase 3: District of Columbia ---
+    'dc_3': [('midday', 'https://www.lotteryusa.com/district-of-columbia/dc-lucky-midday/year'), ('evening', 'https://www.lotteryusa.com/district-of-columbia/dc-lucky-numbers/year'), ('night', 'https://www.lotteryusa.com/district-of-columbia/dc-3-night/year')],
+    'dc_4': [('midday', 'https://www.lotteryusa.com/district-of-columbia/dc-4-midday/year'), ('evening', 'https://www.lotteryusa.com/district-of-columbia/dc-4/year'), ('night', 'https://www.lotteryusa.com/district-of-columbia/dc-4-night/year')],
+    'dc_5': [('midday', 'https://www.lotteryusa.com/district-of-columbia/midday-dc5/year'), ('evening', 'https://www.lotteryusa.com/district-of-columbia/dc-5/year')],
+    # --- Phase 3: Florida ---
+    'fl_fantasy5': [('midday', 'https://www.lotteryusa.com/florida/fantasy-5-midday/year'), ('evening', 'https://www.lotteryusa.com/florida/fantasy-5/year')],
+    'fl_jackpottripleplay': [(None, 'https://www.lotteryusa.com/florida/jackpot-triple-play/year')],
+    'fl_lotto': [(None, 'https://www.lotteryusa.com/florida/lotto/year')],
+    'fl_pick2': [('midday', 'https://www.lotteryusa.com/florida/pick-2-midday/year'), ('evening', 'https://www.lotteryusa.com/florida/pick-2/year')],
+    'fl_pick3': [('midday', 'https://www.lotteryusa.com/florida/midday-pick-3/year'), ('evening', 'https://www.lotteryusa.com/florida/pick-3/year')],
+    'fl_pick4': [('midday', 'https://www.lotteryusa.com/florida/midday-pick-4/year'), ('evening', 'https://www.lotteryusa.com/florida/pick-4/year')],
+    'fl_pick5': [('midday', 'https://www.lotteryusa.com/florida/pick-5-midday/year'), ('evening', 'https://www.lotteryusa.com/florida/pick-5/year')],
+    # --- Phase 3: Georgia ---
+    'ga_cash3': [('midday', 'https://www.lotteryusa.com/georgia/midday-3/year'), ('evening', 'https://www.lotteryusa.com/georgia/cash-3-evening/year'), ('night', 'https://www.lotteryusa.com/georgia/cash-3/year')],
+    'ga_cash4': [('midday', 'https://www.lotteryusa.com/georgia/midday-4/year'), ('evening', 'https://www.lotteryusa.com/georgia/cash-4-evening/year'), ('night', 'https://www.lotteryusa.com/georgia/cash-4/year')],
+    'ga_fantasy5': [(None, 'https://www.lotteryusa.com/georgia/fantasy-5/year')],
+    'ga_georgiafive': [('midday', 'https://www.lotteryusa.com/georgia/midday-georgia-five/year'), ('evening', 'https://www.lotteryusa.com/georgia/georgia-five/year')],
+    # --- Phase 3: Idaho ---
+    'id_idahocash': [(None, 'https://www.lotteryusa.com/idaho/idaho-cash/year')],
+    'id_pick3': [('midday', 'https://www.lotteryusa.com/idaho/midday-pick-3/year'), ('evening', 'https://www.lotteryusa.com/idaho/pick-3/year')],
+    'id_pick4': [('midday', 'https://www.lotteryusa.com/idaho/pick-4-day/year'), ('evening', 'https://www.lotteryusa.com/idaho/pick-4/year')],
+    # --- Phase 3: Illinois ---
+    'il_lotto': [(None, 'https://www.lotteryusa.com/illinois/lotto/year')],
+    'il_luckydaylotto': [('midday', 'https://www.lotteryusa.com/illinois/midday-lucky-day-lotto/year'), ('evening', 'https://www.lotteryusa.com/illinois/lucky-day-lotto-evening/year')],
+    'il_pick3': [('midday', 'https://www.lotteryusa.com/illinois/midday-3/year'), ('evening', 'https://www.lotteryusa.com/illinois/daily-3/year')],
+    'il_pick4': [('midday', 'https://www.lotteryusa.com/illinois/midday-4/year'), ('evening', 'https://www.lotteryusa.com/illinois/daily-4/year')],
+    # --- Phase 3: Iowa ---
+    'ia_pick3': [('midday', 'https://www.lotteryusa.com/iowa/midday-3/year'), ('evening', 'https://www.lotteryusa.com/iowa/pick-3/year')],
+    'ia_pick4': [('midday', 'https://www.lotteryusa.com/iowa/midday-4/year'), ('evening', 'https://www.lotteryusa.com/iowa/pick-4/year')],
+    # --- Phase 3: Kansas ---
+    'ks_pick3': [('midday', 'https://www.lotteryusa.com/kansas/midday-pick-3/year'), ('evening', 'https://www.lotteryusa.com/kansas/pick-3/year')],
+    'ks_superkansas': [(None, 'https://www.lotteryusa.com/kansas/super-kansas-cash/year')],
+    # --- Phase 3: Louisiana ---
+    'la_easy5': [(None, 'https://www.lotteryusa.com/louisiana/easy-5/year')],
+    'la_lotto': [(None, 'https://www.lotteryusa.com/louisiana/lotto/year')],
+    'la_pick3': [(None, 'https://www.lotteryusa.com/louisiana/pick-3/year')],
+    'la_pick4': [(None, 'https://www.lotteryusa.com/louisiana/pick-4/year')],
+    'la_pick5': [(None, 'https://www.lotteryusa.com/louisiana/pick-5/year')],
+    # --- Phase 3: Maine ---
+    'me_pick3': [('midday', 'https://www.lotteryusa.com/maine/midday-3/year'), ('evening', 'https://www.lotteryusa.com/maine/pick-3/year')],
+    'me_pick4': [('midday', 'https://www.lotteryusa.com/maine/midday-4/year'), ('evening', 'https://www.lotteryusa.com/maine/pick-4/year')],
+    # --- Phase 3: Maryland ---
+    'md_bonusmatch5': [(None, 'https://www.lotteryusa.com/maryland/bonus-match-5/year')],
+    'md_multimatch': [(None, 'https://www.lotteryusa.com/maryland/multi-match/year')],
+    'md_pick3': [('midday', 'https://www.lotteryusa.com/maryland/midday-pick-3/year'), ('evening', 'https://www.lotteryusa.com/maryland/pick-3/year')],
+    'md_pick4': [('midday', 'https://www.lotteryusa.com/maryland/midday-pick-4/year'), ('evening', 'https://www.lotteryusa.com/maryland/pick-4/year')],
+    'md_pick5': [('midday', 'https://www.lotteryusa.com/maryland/midday-pick-5/year'), ('evening', 'https://www.lotteryusa.com/maryland/pick-5/year')],
+    # --- Phase 3: Massachusetts ---
+    'ma_mass3': [(None, 'https://www.lotteryusa.com/massachusetts/mass-3/year')],
+    'ma_mass4': [(None, 'https://www.lotteryusa.com/massachusetts/mass-4/year')],
+    'ma_masscash': [('midday', 'https://www.lotteryusa.com/massachusetts/midday-mass-cash/year'), ('evening', 'https://www.lotteryusa.com/massachusetts/mass-cash/year')],
+    'ma_megabucks': [(None, 'https://www.lotteryusa.com/massachusetts/megabucks/year')],
+    'ma_numbers': [('midday', 'https://www.lotteryusa.com/massachusetts/midday-numbers/year'), ('evening', 'https://www.lotteryusa.com/massachusetts/numbers/year')],
+    # --- Phase 3: Minnesota ---
+    'mn_daily3': [(None, 'https://www.lotteryusa.com/minnesota/pick-3/year')],
+    'mn_gopher5': [(None, 'https://www.lotteryusa.com/minnesota/gopher-5/year')],
+    'mn_north5': [(None, 'https://www.lotteryusa.com/minnesota/north-5/year')],
+    # --- Phase 3: Mississippi ---
+    'ms_cash3': [('midday', 'https://www.lotteryusa.com/mississippi/cash-3-midday/year'), ('evening', 'https://www.lotteryusa.com/mississippi/cash-3/year')],
+    'ms_cash4': [('midday', 'https://www.lotteryusa.com/mississippi/cash-4-midday/year'), ('evening', 'https://www.lotteryusa.com/mississippi/cash-4/year')],
+    'ms_match5': [(None, 'https://www.lotteryusa.com/mississippi/match-5/year')],
+    # --- Phase 3: Missouri ---
+    'mo_millions': [(None, 'https://www.lotteryusa.com/missouri/mo-millions/year')],
+    'mo_pick3': [('midday', 'https://www.lotteryusa.com/missouri/midday-pick-3/year'), ('evening', 'https://www.lotteryusa.com/missouri/pick-3/year')],
+    'mo_pick4': [('midday', 'https://www.lotteryusa.com/missouri/midday-pick-4/year'), ('evening', 'https://www.lotteryusa.com/missouri/pick-4/year')],
+    'mo_showme': [(None, 'https://www.lotteryusa.com/missouri/show-me-cash/year')],
+    # --- Phase 3: Montana ---
+    'mt_bigskyb': [(None, 'https://www.lotteryusa.com/montana/big-sky-bonus/year')],
+    'mt_cash': [(None, 'https://www.lotteryusa.com/montana/montana-cash/year')],
+    # --- Phase 3: Nebraska ---
+    'ne_pick3': [(None, 'https://www.lotteryusa.com/nebraska/pick-3/year')],
+    'ne_pick5': [(None, 'https://www.lotteryusa.com/nebraska/pick-5/year')],
+    # --- Phase 3: New Hampshire ---
+    'nh_pick3': [('midday', 'https://www.lotteryusa.com/new-hampshire/midday-3/year'), ('evening', 'https://www.lotteryusa.com/new-hampshire/pick-3/year')],
+    'nh_pick4': [('midday', 'https://www.lotteryusa.com/new-hampshire/midday-4/year'), ('evening', 'https://www.lotteryusa.com/new-hampshire/pick-4/year')],
+    # --- Phase 3: New Jersey ---
+    'nj_cash5': [(None, 'https://www.lotteryusa.com/new-jersey/cash-5/year')],
+    'nj_pick3': [('midday', 'https://www.lotteryusa.com/new-jersey/midday-pick-3/year'), ('evening', 'https://www.lotteryusa.com/new-jersey/pick-3/year')],
+    'nj_pick4': [('midday', 'https://www.lotteryusa.com/new-jersey/midday-pick-4/year'), ('evening', 'https://www.lotteryusa.com/new-jersey/pick-4/year')],
+    'nj_pick6': [(None, 'https://www.lotteryusa.com/new-jersey/pick-6/year')],
+    # --- Phase 3: New Mexico ---
+    'nm_pick3plus': [('midday', 'https://www.lotteryusa.com/new-mexico/midday-pick-3-plus/year'), ('evening', 'https://www.lotteryusa.com/new-mexico/pick-3-plus/year')],
+    'nm_pick4plus': [('midday', 'https://www.lotteryusa.com/new-mexico/midday-pick-4-plus/year'), ('evening', 'https://www.lotteryusa.com/new-mexico/pick-4-plus/year')],
+    'nm_roadrunner': [(None, 'https://www.lotteryusa.com/new-mexico/road-runner-cash/year')],
+    # --- Phase 3: North Carolina ---
+    'nc_cash5': [(None, 'https://www.lotteryusa.com/north-carolina/cash-5/year')],
+    'nc_pick3': [('midday', 'https://www.lotteryusa.com/north-carolina/midday-3/year'), ('evening', 'https://www.lotteryusa.com/north-carolina/pick-3/year')],
+    'nc_pick4': [('midday', 'https://www.lotteryusa.com/north-carolina/midday-pick-4/year'), ('evening', 'https://www.lotteryusa.com/north-carolina/pick-4/year')],
+    # --- Phase 3: Oklahoma ---
+    'ok_cash5': [(None, 'https://www.lotteryusa.com/oklahoma/cash-5/year')],
+    'ok_pick3': [(None, 'https://www.lotteryusa.com/oklahoma/pick-3/year')],
+    # --- Phase 3: Oregon ---
+    'or_megabucks': [(None, 'https://www.lotteryusa.com/oregon/megabucks/year')],
+    'or_winforlife': [(None, 'https://www.lotteryusa.com/oregon/win-for-life/year')],
+    # --- Phase 3: Puerto Rico ---
+    'pr_lotoplus': [(None, 'https://www.lotteryusa.com/puerto-rico/lotto/year')],
+    'pr_pega2': [('midday', 'https://www.lotteryusa.com/puerto-rico/midday-pega-2/year'), ('evening', 'https://www.lotteryusa.com/puerto-rico/pega-2/year')],
+    'pr_pega3': [('midday', 'https://www.lotteryusa.com/puerto-rico/midday-pega-3/year'), ('evening', 'https://www.lotteryusa.com/puerto-rico/pega-3/year')],
+    'pr_pega4': [('midday', 'https://www.lotteryusa.com/puerto-rico/midday-pega-4/year'), ('evening', 'https://www.lotteryusa.com/puerto-rico/pega-4/year')],
+    # --- Phase 3: Rhode Island ---
+    'ri_numbers': [('midday', 'https://www.lotteryusa.com/rhode-island/midday-numbers/year'), ('evening', 'https://www.lotteryusa.com/rhode-island/numbers/year')],
+    'ri_wildmoney': [(None, 'https://www.lotteryusa.com/rhode-island/wild-money/year')],
+    # --- Phase 3: South Carolina ---
+    'sc_palmetto5': [(None, 'https://www.lotteryusa.com/south-carolina/palmetto-cash-5/year')],
+    'sc_pick3': [('midday', 'https://www.lotteryusa.com/south-carolina/midday-pick-3/year'), ('evening', 'https://www.lotteryusa.com/south-carolina/pick-3/year')],
+    'sc_pick4': [('midday', 'https://www.lotteryusa.com/south-carolina/midday-pick-4/year'), ('evening', 'https://www.lotteryusa.com/south-carolina/pick-4/year')],
+    # --- Phase 3: South Dakota ---
+    'sd_dakotacash': [(None, 'https://www.lotteryusa.com/south-dakota/dakota-cash/year')],
+    # --- Phase 3: Tennessee ---
+    'tn_cash3': [('midday', 'https://www.lotteryusa.com/tennessee/morning-cash-3/year'), ('evening', 'https://www.lotteryusa.com/tennessee/midday-cash-3/year'), ('night', 'https://www.lotteryusa.com/tennessee/cash-3/year')],
+    'tn_cash4': [('midday', 'https://www.lotteryusa.com/tennessee/morning-cash-4/year'), ('evening', 'https://www.lotteryusa.com/tennessee/midday-cash-4/year'), ('night', 'https://www.lotteryusa.com/tennessee/cash-4/year')],
+    'tn_dailyjackpot': [(None, 'https://www.lotteryusa.com/tennessee/daily-tennessee-jackpot/year')],
+    'tn_tncash': [(None, 'https://www.lotteryusa.com/tennessee/tennessee-cash/year')],
+    # --- Phase 3: Texas ---
+    'tx_cashfive': [(None, 'https://www.lotteryusa.com/texas/cash-5/year')],
+    'tx_lottotexas': [(None, 'https://www.lotteryusa.com/texas/lotto-texas/year')],
+    'tx_twostep': [(None, 'https://www.lotteryusa.com/texas/texas-two-step/year')],
+    # --- Phase 3: Vermont ---
+    'vt_pick3': [('midday', 'https://www.lotteryusa.com/vermont/midday-3/year'), ('evening', 'https://www.lotteryusa.com/vermont/pick-3/year')],
+    'vt_pick4': [('midday', 'https://www.lotteryusa.com/vermont/midday-4/year'), ('evening', 'https://www.lotteryusa.com/vermont/pick-4/year')],
+    # --- Phase 3: Virginia ---
+    'va_bankamillion': [(None, 'https://www.lotteryusa.com/virginia/bank-a-million/year')],
+    'va_cash5': [(None, 'https://www.lotteryusa.com/virginia/cash-5/year')],
+    'va_pick3': [('midday', 'https://www.lotteryusa.com/virginia/midday-3/year'), ('evening', 'https://www.lotteryusa.com/virginia/pick-3/year')],
+    'va_pick4': [('midday', 'https://www.lotteryusa.com/virginia/midday-4/year'), ('evening', 'https://www.lotteryusa.com/virginia/pick-4/year')],
+    'va_pick5': [('midday', 'https://www.lotteryusa.com/virginia/pick-5-day/year'), ('evening', 'https://www.lotteryusa.com/virginia/pick-5/year')],
+    # --- Phase 3: Washington ---
+    'wa_daily': [(None, 'https://www.lotteryusa.com/washington/daily/year')],
+    'wa_hit5': [(None, 'https://www.lotteryusa.com/washington/hit-5/year')],
+    'wa_lotto': [(None, 'https://www.lotteryusa.com/washington/lotto/year')],
+    'wa_match4': [(None, 'https://www.lotteryusa.com/washington/match-4/year')],
+    # --- Phase 3: Wisconsin ---
+    'wi_badger5': [(None, 'https://www.lotteryusa.com/wisconsin/badger-5/year')],
+    'wi_megabucks': [(None, 'https://www.lotteryusa.com/wisconsin/very-own-megabucks/year')],
+    'wi_pick3': [('midday', 'https://www.lotteryusa.com/wisconsin/daily-pick-3/year'), ('evening', 'https://www.lotteryusa.com/wisconsin/daily-pick-3-evening/year')],
+    'wi_pick4': [('midday', 'https://www.lotteryusa.com/wisconsin/daily-pick-4/year'), ('evening', 'https://www.lotteryusa.com/wisconsin/daily-pick-4-evening/year')],
+    'wi_supercash': [(None, 'https://www.lotteryusa.com/wisconsin/super-cash/year')],
+    # --- Phase 3: Wyoming ---
+    'wy_cowboydraw': [(None, 'https://www.lotteryusa.com/wyoming/cowboy-draw/year')],
+    # --- Phase 3: Shared games ---
+    'lottoamerica': [(None, 'https://www.lotteryusa.com/lotto-america/year')],
+    'tristate_gimme5': [(None, 'https://www.lotteryusa.com/maine/gimme-5/year')],
+    'tristate_megabucks': [(None, 'https://www.lotteryusa.com/maine/megabucks/year')],
 }
 
 # LUSA games whose cards carry a second ball box that is NOT the draw
 # (e.g. Michigan Fantasy 5 / Lotto 47 "Double Play"). Only the named
 # box title is parsed for these games.
-LUSA_ONLY_BOX = {'mi_fantasy5': 'Regular', 'mi_lotto47': 'Regular'}
+LUSA_ONLY_BOX = {'mi_fantasy5': 'Regular', 'mi_lotto47': 'Regular',
+                 'co_lotto': 'Main numbers', 'fl_lotto': 'Main Draw', 'il_lotto': 'Jackpot', 'mo_millions': 'Main', 'nc_cash5': 'Main draw', 'nj_pick6': 'Main draw'}
+
+# Games whose "bonus" ball is the last number of the main draw, not a
+# separate ball — NJ Cash 5's Bullseye is the fifth number drawn
+# (verified against the official NJ Lottery rules, Nov 3, 2026).
+# merge_simple folds it into the numbers list; the game is stored as a
+# plain main-only draw.
+LUSA_BONUS_IN_MAIN = {'nj_cash5'}
 
 # Games with two draws per day fetched via LotteryUSA slot pages.
 SLOT_GAMES = {'pick3', 'pick4', 'pick5',
               'pa_pick2', 'pa_pick3', 'pa_pick4', 'pa_pick5',
               'mi_daily3', 'mi_daily4', 'mi_daily5',
-              'in_daily3', 'in_daily4', 'ky_pick3', 'ky_pick4'}
+              'in_daily3', 'in_daily4', 'ky_pick3', 'ky_pick4',
+              'ar_cash3', 'ar_cash4', 'az_pick3', 'az_pick4', 'ca_daily3', 'co_pick3', 'ct_play3', 'ct_play4', 'dc_3', 'dc_4', 'dc_5', 'de_play3', 'de_play4', 'de_play5', 'fl_fantasy5', 'fl_pick2', 'fl_pick3', 'fl_pick4', 'fl_pick5', 'ga_cash3', 'ga_cash4', 'ga_georgiafive', 'ia_pick3', 'ia_pick4', 'id_pick3', 'id_pick4', 'il_luckydaylotto', 'il_pick3', 'il_pick4', 'ks_pick3', 'ma_masscash', 'ma_numbers', 'md_pick3', 'md_pick4', 'md_pick5', 'me_pick3', 'me_pick4', 'mo_pick3', 'mo_pick4', 'ms_cash3', 'ms_cash4', 'nc_pick3', 'nc_pick4', 'nh_pick3', 'nh_pick4', 'nj_pick3', 'nj_pick4', 'nm_pick3plus', 'nm_pick4plus', 'pr_pega2', 'pr_pega3', 'pr_pega4', 'ri_numbers', 'sc_pick3', 'sc_pick4', 'tn_cash3', 'tn_cash4', 'va_pick3', 'va_pick4', 'va_pick5', 'vt_pick3', 'vt_pick4', 'wi_pick3', 'wi_pick4'}
 
 
 def fail(msg):
@@ -263,9 +619,15 @@ def fetch_socrata_slots(game, since):
 
 
 def fetch_lusa_page(url, only_box=None):
-    """Parse one LotteryUSA year page -> {date: [numbers]} (newest first in page).
-    only_box: if set, take balls only from the ball box with that title
-    (e.g. Michigan Fantasy 5 / Lotto 47 'Regular' vs 'Double Play')."""
+    """Parse one LotteryUSA year page ->
+    {date: {'numbers': [...], 'bonus': n|None}} (newest first in page).
+    A bonus ball (e.g. Texas Two Step's Bonus Ball, WA Lotto's bonus) renders
+    as <li class="c-result__bonus"> with the number in a nested span, so it
+    is captured separately from the main balls. Digit games' add-on balls
+    (Fireball / Wild Ball) render the same way and are ignored by the digit
+    merge path (the digit model has no bonus). only_box: if set, take balls
+    only from the ball box with that title (e.g. Michigan Fantasy 5 /
+    Lotto 47 'Regular' vs 'Double Play'; Florida Lotto 'Main Draw')."""
     html = requests.get(url, headers=UA, timeout=TIMEOUT).text
     cards = re.split(r'c-results-table__item', html)[1:]
     found = {}
@@ -274,17 +636,23 @@ def fetch_lusa_page(url, only_box=None):
         if not dm:
             continue
         date = datetime.strptime(dm.group(1), '%b %d, %Y').strftime('%Y-%m-%d')
+        scope = card
         if only_box:
             balls = []
             for part in re.split(r'c-draw-card__ball-box', card)[1:]:
                 tm = re.search(r'c-draw-card__ball-title">\s*([^<]+?)\s*</p>', part)
                 if tm and tm.group(1).strip() == only_box:
                     balls = [int(x) for x in re.findall(r'<li class="c-ball[^"]*">\s*(\d+)\s*</li>', part)]
+                    scope = part
                     break
         else:
             balls = [int(x) for x in re.findall(r'<li class="c-ball[^"]*">\s*(\d+)\s*</li>', card)]
+        bonus = None
+        bm = re.search(r'<li class="c-result__bonus">.*?<span class="c-ball[^"]*">\s*(\d+)\s*</span>', scope, re.S)
+        if bm:
+            bonus = int(bm.group(1))
         if balls:
-            found[date] = balls
+            found[date] = {'numbers': balls, 'bonus': bonus}
     if not found:
         raise ValueError(f'no draw cards parsed from {url}')
     return found
@@ -292,39 +660,68 @@ def fetch_lusa_page(url, only_box=None):
 
 def merge_simple(game, stored, fetched_by_date):
     """Non-pick games: keyed union by date within the stored window
-    (no backfill earlier than the first stored draw), sorted ascending."""
+    (no backfill earlier than the first stored draw), sorted ascending.
+    fetched_by_date values are {'numbers': [...], 'bonus': n|None}."""
     first = stored[0]['date'] if stored else '0000-00-00'
     by_date = {d['date']: d for d in stored}
     added = 0
-    for date, nums in fetched_by_date.items():
+    for date, entry in fetched_by_date.items():
         if date < first:
             continue
+        nums, bonus = entry['numbers'], entry.get('bonus')
+        if game in DIGITS:
+            # Digit games have no bonus in the model (add-on balls such as
+            # Fireball, Wicked Bonus, Wild Ball are ignored — same as
+            # merge_picks). MA Mass 3/4 cards carry a Wicked Bonus digit.
+            bonus = None
+        if game in LUSA_BONUS_IN_MAIN and bonus is not None:
+            # The "bonus" is the last number of the main draw, not a
+            # separate ball (NJ Cash 5's Bullseye is the fifth number
+            # drawn). Fold it into the numbers list.
+            nums = nums + [bonus]
+            bonus = None
         if date not in by_date:
-            err = validate(game, nums, None)
+            err = validate(game, nums, bonus)
             if err:
                 raise ValueError(err + f' (date {date})')
-            by_date[date] = {'date': date, 'numbers': nums}
+            e = {'date': date, 'numbers': nums}
+            if bonus is not None:
+                e['bonus'] = bonus
+            by_date[date] = e
             added += 1
-        elif by_date[date]['numbers'] != nums:
-            raise ValueError(f'{game}: CONFLICT on {date}: stored {by_date[date]["numbers"]} vs fetched {nums}')
+        elif by_date[date]['numbers'] != nums or by_date[date].get('bonus') != bonus:
+            raise ValueError(f'{game}: CONFLICT on {date}: stored {by_date[date]} vs fetched {entry}')
     return sorted(by_date.values(), key=lambda d: d['date']), added
 
 
+# Slot order within a date (Phase 3: DC-3/DC-4 and GA Cash 3/Cash 4 draw
+# three times a day — midday, evening, night). Stored entries are always
+# in time order, so the n-th entry of a date is the n-th slot.
+SLOT_ORDER = {'midday': 0, 'evening': 1, 'night': 2}
+_SLOT_BY_INDEX = ('midday', 'evening', 'night')
+
+
 def merge_picks(game, stored, slot_maps):
-    """Pick games: stored order within a date is midday then evening.
-    slot_maps: {'midday': {date: digits}, 'evening': {date: digits}}
+    """Pick games: stored order within a date is midday, evening, then
+    night (only games with three draws a day use the night slot).
+    slot_maps: {'midday': {date: digits}, 'evening': {...}, 'night': {...}}
     An empty stored list seeds from whatever the source returns."""
     first = stored[0]['date'] if stored else '0000-00-00'
     by_key = {}
     from collections import Counter
     seen = Counter()
     for entry in stored:
-        slot = 'midday' if seen[entry['date']] == 0 else 'evening'
+        idx = seen[entry['date']]
+        slot = _SLOT_BY_INDEX[idx] if idx < len(_SLOT_BY_INDEX) else 'evening'
         seen[entry['date']] += 1
         by_key[(entry['date'], slot)] = entry['numbers']
     added = 0
     for slot, fmap in slot_maps.items():
-        for date, nums in fmap.items():
+        for date, entry in fmap.items():
+            # LotteryUSA slot maps carry {'numbers': [...], 'bonus': ...};
+            # Socrata slot maps carry plain number lists. Digit games have
+            # no bonus in the model either way (add-on balls ignored).
+            nums = entry['numbers'] if isinstance(entry, dict) else entry
             if date < first:
                 continue
             key = (date, slot)
@@ -337,7 +734,7 @@ def merge_picks(game, stored, slot_maps):
             elif by_key[key] != nums:
                 raise ValueError(f'{game}: CONFLICT {date} {slot}: stored {by_key[key]} vs fetched {nums}')
     merged = [{'date': d, 'numbers': by_key[(d, s)]}
-              for (d, s) in sorted(by_key.keys(), key=lambda k: (k[0], 0 if k[1] == 'midday' else 1))]
+              for (d, s) in sorted(by_key.keys(), key=lambda k: (k[0], SLOT_ORDER.get(k[1], 1)))]
     return merged, added
 
 
