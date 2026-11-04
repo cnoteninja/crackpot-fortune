@@ -218,7 +218,7 @@
     <div class="crowd-row">
       <button class="pill on" id="crowdToggle" aria-pressed="true">🙈 Avoid the crowd</button>
     </div>
-    <p class="crowd-note">Steers picks away from the numbers everybody plays — birthdays (1–31), neat sequences, and repeats. It won't make you more likely to win, but if you do win, you'll share the jackpot with fewer people.</p>
+    <p class="crowd-note" id="crowdNote">Steers picks away from the numbers everybody plays — birthdays (1–31), neat sequences, and repeats. It won't make you more likely to win, but if you do win, you'll share the jackpot with fewer people.</p>
   </section>
 
   <section class="card stage" id="stageCard">
@@ -795,10 +795,49 @@ function weightedPick(cands, scores){
   for (let i = 0; i < cands.length; i++){ r -= w[i]; if (r <= 0) return cands[i]; }
   return cands[cands.length-1];
 }
-function choose(pool, st, count, kind, g){
+/* Session diversity: remember the last 2 shown picks per game so
+   consecutive cookies for the same game don't come out as near-copies.
+   The scores that rank numbers only change when new draw data arrives,
+   so without memory a hot/overdue number like 68 or 69 sits at the top
+   of the ranking and lands in nearly every cookie. In-memory only — a
+   page reload resets it. A number from the most recent pick is
+   penalized hardest, the pick before that less so; the penalty
+   multiplies the score before ranking, and the candidate pool widens
+   (count+6 -> count+12) while memory exists so fresh numbers can enter
+   it. A genuinely hot/overdue number can still appear sometimes —
+   just not in every cookie. Digits games use the same memory per
+   position (mains[pos] is position pos's digit). */
+const recentPicks = {}; // game key -> [{mains:[...], bonus:v|null}] newest first, max 2
+const DIVERSITY_LAST = 0.25, DIVERSITY_PREV = 0.55;
+const DIVERSITY_BONUS_LAST = 0.1, DIVERSITY_BONUS_PREV = 0.5;
+function diversityFactor(kind, v, pos){
+  const hist = recentPicks[game];
+  if (!hist || !hist.length) return 1;
+  let f = 1;
+  for (let i = 0; i < hist.length; i++){
+    const p = hist[i];
+    if (kind === "digits"){
+      if (p.mains[pos] === v) f *= (i === 0 ? 0.3 : 0.6);
+    } else if (kind === "bonus"){
+      if (p.bonus === v) f *= (i === 0 ? DIVERSITY_BONUS_LAST : DIVERSITY_BONUS_PREV);
+    } else if (p.mains.includes(v)){
+      f *= (i === 0 ? DIVERSITY_LAST : DIVERSITY_PREV);
+    }
+  }
+  return f;
+}
+function recordPick(pick){
+  const rec = {mains: pick.mainPicks.map(p => p.v), bonus: pick.bonusPick ? pick.bonusPick.v : null};
+  const hist = recentPicks[game] || (recentPicks[game] = []);
+  hist.unshift(rec);
+  if (hist.length > 2) hist.length = 2;
+}
+function choose(pool, st, count, kind, g, pos){
   const sc = scoreMap(pool, st, kind, g);
+  pool.forEach(v => { sc[v] *= diversityFactor(kind, v, pos); });
   const ranked = [...pool].sort((a,b) => sc[b]-sc[a]);
-  const candPool = ranked.slice(0, Math.min(pool.length, count + 6));
+  const span = (recentPicks[game] && recentPicks[game].length) ? count + 12 : count + 6;
+  const candPool = ranked.slice(0, Math.min(pool.length, span));
   const picked = [];
   const used = new Set();
   while (picked.length < count){
@@ -850,7 +889,7 @@ function buildOnePick(){
       const st = statsFor(wDraws.map(d => [d.numbers[pos]]), pool);
       const stAll = statsFor(draws.map(d => [d.numbers[pos]]), pool);
       pool.forEach(v => st.since[v] = stAll.since[v]); // overdue measured on full history
-      const [p] = choose(pool, st, 1, "digits", g);
+      const [p] = choose(pool, st, 1, "digits", g, pos);
       mainPicks.push(p); note(p);
     }
   } else {
@@ -872,16 +911,23 @@ function buildOnePick(){
 }
 
 function makePick(){
-  if (!avoidCrowd) return buildOnePick();
-  // With crowd-avoidance on, roll a few slips and keep the least crowded.
-  let best = null, bestScore = Infinity;
-  for (let i = 0; i < 25; i++){
-    const p = buildOnePick();
-    const s = crowdedScore(p.mainPicks, GAMES[game]);
-    if (s < bestScore){ best = p; bestScore = s; }
-    if (s === 0) break;
+  let pick;
+  if (!avoidCrowd){ pick = buildOnePick(); }
+  else {
+    // With crowd-avoidance on, roll a few slips and keep the least crowded.
+    let best = null, bestScore = Infinity;
+    for (let i = 0; i < 25; i++){
+      const p = buildOnePick();
+      const s = crowdedScore(p.mainPicks, GAMES[game]);
+      if (s < bestScore){ best = p; bestScore = s; }
+      if (s === 0) break;
+    }
+    pick = best;
   }
-  return best;
+  // Record only the shown pick — the trial slips above must not pollute
+  // the diversity memory.
+  recordPick(pick);
+  return pick;
 }
 
 let lastFortune = -1;
@@ -937,6 +983,7 @@ $("crowdToggle").onclick = () => {
   avoidCrowd = !avoidCrowd;
   $("crowdToggle").classList.toggle("on", avoidCrowd);
   $("crowdToggle").setAttribute("aria-pressed", String(avoidCrowd));
+  $("crowdNote").hidden = !avoidCrowd;
   resetCookie();
 };
 $("modeSeg").querySelectorAll(".pill").forEach(b => b.onclick = () => {
