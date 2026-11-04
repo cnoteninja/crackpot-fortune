@@ -31,7 +31,7 @@ Data path override: CF_DATA=/path/to/draws.json (used for testing).
 Output: one JSON summary line on stdout.
 Exit code: 0 = updated or nochange, 1 = error (draws.json untouched).
 """
-import json, os, re, sys
+import json, os, re, sys, time
 from datetime import datetime
 from pathlib import Path
 
@@ -39,8 +39,17 @@ import requests
 
 ROOT = Path(__file__).parent
 DATA_PATH = Path(os.environ.get('CF_DATA', ROOT / 'data' / 'draws.json'))
-UA = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36'}
+UA = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9'}
 TIMEOUT = 30
+# Pacing + retry (Nov 2026): the Phase 3 scale-up (8 -> 165 games, ~250
+# requests per run) trips LotteryUSA's bot protection when the burst hits
+# from a datacenter IP — the Actions runner's refresh died in ~35s on
+# fast 403s. Pace every LotteryUSA page fetch and retry each game once.
+# Both are module-level constants so tests can stub them to 0.
+PACE_SECONDS = 0.25
+RETRY_SECONDS = 5
 
 # game -> (count, max, has_bonus, bonus_max, distinct)
 # count = numbers in one draw. For Pick 10 the draw has 20 numbers even
@@ -731,6 +740,10 @@ def fetch_lusa_page(url, only_box=None):
     merge path (the digit model has no bonus). only_box: if set, take balls
     only from the ball box with that title (e.g. Michigan Fantasy 5 /
     Lotto 47 'Regular' vs 'Double Play'; Florida Lotto 'Main Draw')."""
+    # Pace the burst: this is the single choke point for all ~241
+    # LotteryUSA page fetches per run. Hitting them in rapid succession
+    # from one IP trips the source's bot protection (fast 403s).
+    time.sleep(PACE_SECONDS)
     html = requests.get(url, headers=UA, timeout=TIMEOUT).text
     cards = re.split(r'c-results-table__item', html)[1:]
     found = {}
@@ -841,47 +854,82 @@ def merge_picks(game, stored, slot_maps):
     return merged, added
 
 
+def _is_retryable(err):
+    """Whether a per-game failure is worth one retry. A merge conflict is
+    a genuine data disagreement, not a transient failure — retrying it
+    is pointless, so conflicts fail immediately. Everything in the
+    transient set (request errors, parse failures, empty results,
+    validation errors from a bad response) gets one retry."""
+    if isinstance(err, requests.RequestException):
+        return True
+    return isinstance(err, ValueError) and 'CONFLICT' not in str(err)
+
+
+def fetch_game(game, data):
+    """Fetch and merge one game in place; returns the number of draws
+    added. Raises on any failure. Safe to retry: a failed attempt never
+    mutates data (merges only assign after they succeed)."""
+    stored = data.get(game, [])
+    if game in SOCRATA:
+        since = stored[-1]['date'] if stored else SEED_SINCE.get(game, '2020-01-01')
+        new = fetch_socrata(game, since)
+        if new:
+            if stored:
+                for e in new:
+                    if e['date'] <= stored[-1]['date']:
+                        raise ValueError(f'{game}: Socrata returned non-newer draw {e}')
+            stored.extend(new)
+            data[game] = stored
+            return len(new)
+    elif game in SOCRATA_SLOTS:
+        since = stored[0]['date'] if stored else SEED_SINCE.get(game, '2020-01-01')
+        slot_maps = fetch_socrata_slots(game, since)
+        merged, n = merge_picks(game, stored, slot_maps)
+        if n:
+            data[game] = merged
+        return n
+    elif game in SLOT_GAMES:
+        slot_maps = {slot: fetch_lusa_page(url, LUSA_ONLY_BOX.get(game))
+                     for slot, url in LUSA[game]}
+        merged, n = merge_picks(game, stored, slot_maps)
+        if n:
+            data[game] = merged
+        return n
+    else:
+        fmap = fetch_lusa_page(LUSA[game][0][1], LUSA_ONLY_BOX.get(game))
+        merged, n = merge_simple(game, stored, fmap)
+        if n:
+            data[game] = merged
+        return n
+    return 0
+
+
+def fetch_game_with_retry(game, data):
+    """One attempt, then one retry after RETRY_SECONDS for transient
+    failures. Returns (added_count, error_str_or_None)."""
+    try:
+        return fetch_game(game, data), None
+    except Exception as e:
+        if not _is_retryable(e):
+            return 0, str(e)
+        time.sleep(RETRY_SECONDS)
+        try:
+            return fetch_game(game, data), None
+        except Exception as e2:
+            return 0, str(e2)
+
+
 def main():
     data = json.loads(DATA_PATH.read_text())
     added = {}
     errors = []
 
     for game in RULES:
-        stored = data.get(game, [])
-        try:
-            if game in SOCRATA:
-                since = stored[-1]['date'] if stored else SEED_SINCE.get(game, '2020-01-01')
-                new = fetch_socrata(game, since)
-                if new:
-                    if stored:
-                        for e in new:
-                            if e['date'] <= stored[-1]['date']:
-                                raise ValueError(f'{game}: Socrata returned non-newer draw {e}')
-                    stored.extend(new)
-                    data[game] = stored
-                    added[game] = len(new)
-            elif game in SOCRATA_SLOTS:
-                since = stored[0]['date'] if stored else SEED_SINCE.get(game, '2020-01-01')
-                slot_maps = fetch_socrata_slots(game, since)
-                merged, n = merge_picks(game, stored, slot_maps)
-                if n:
-                    data[game] = merged
-                    added[game] = n
-            elif game in SLOT_GAMES:
-                slot_maps = {slot: fetch_lusa_page(url, LUSA_ONLY_BOX.get(game))
-                             for slot, url in LUSA[game]}
-                merged, n = merge_picks(game, stored, slot_maps)
-                if n:
-                    data[game] = merged
-                    added[game] = n
-            else:
-                fmap = fetch_lusa_page(LUSA[game][0][1], LUSA_ONLY_BOX.get(game))
-                merged, n = merge_simple(game, stored, fmap)
-                if n:
-                    data[game] = merged
-                    added[game] = n
-        except Exception as e:
-            errors.append(str(e))
+        n, err = fetch_game_with_retry(game, data)
+        if err:
+            errors.append(err)
+        elif n:
+            added[game] = n
 
     # Mega Millions fast lane (official site, minutes after the draw).
     # Only a genuine conflict with stored data is a hard error; every
