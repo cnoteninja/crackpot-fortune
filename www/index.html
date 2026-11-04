@@ -93,7 +93,8 @@
   button.act{flex:1; border:none; border-radius:12px; padding:13px 10px; font-size:.98rem; font-weight:700; cursor:pointer; white-space:nowrap}
   .again{background:#ffffff14; color:var(--ink); border:1px solid var(--line) !important}
   .keep{background:var(--gold); color:#241a05}
-  .share{background:#ffffff14; color:var(--ink); border:1px solid var(--line) !important}
+  .slip .slip-share{display:block; width:100%; margin:12px 0 2px; padding:9px 10px; font-size:.85rem; font-weight:700; font-family:-apple-system,sans-serif; color:#6d5316; background:#8a6a2514; border:1px solid #8a6a2544; border-radius:999px; cursor:pointer}
+  .slip .slip-share:active{transform:scale(.98)}
   button.act:active{transform:scale(.98)}
   /* jar */
   .jar-item{background:#ffffff0d; border:1px solid #ffffff1c; border-radius:12px; padding:10px 12px; margin-bottom:9px}
@@ -235,13 +236,13 @@
         <div class="bonus-name" id="slipBonusName"></div>
         <div class="lucky" id="slipLucky"></div>
         <div class="chips" id="slipChips"></div>
+        <button class="slip-share" id="shareBtn">📤 Share this slip</button>
       </div>
     </div>
     <p class="tap-hint" id="tapHint">Tap the cookie to crack your fortune</p>
     <div class="actions">
       <button class="act again" id="againBtn">🥠 Crack another</button>
       <button class="act keep" id="keepBtn">Keep this slip</button>
-      <button class="act share" id="shareBtn">📤 Share this slip</button>
     </div>
     <p class="fair-note">Every draw is independent — hot, cold, and overdue are stories about the past, not predictions. These picks are for fun.</p>
   </section>
