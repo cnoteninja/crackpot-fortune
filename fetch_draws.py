@@ -29,7 +29,13 @@ Sources:
 Data path override: CF_DATA=/path/to/draws.json (used for testing).
 
 Output: one JSON summary line on stdout.
-Exit code: 0 = updated or nochange, 1 = error (draws.json untouched).
+Exit code: 0 = updated or nochange, 1 = hard error (draws.json untouched).
+A run may carry a 'warnings' list: per-game failures that are NOT data
+conflicts (request errors, unparseable pages, empty results, bad
+responses) no longer abort the run — that game simply doesn't update
+while every game that fetched cleanly still publishes. Only a genuine
+CONFLICT between stored and fetched draws for the same date is a hard
+error, because publishing either side blindly would be wrong.
 """
 import json, os, re, sys, time
 from datetime import datetime
@@ -530,8 +536,16 @@ LUSA = {  # game -> list of (slot, url); slot None for single-draw games
 # LUSA games whose cards carry a second ball box that is NOT the draw
 # (e.g. Michigan Fantasy 5 / Lotto 47 "Double Play"). Only the named
 # box title is parsed for these games.
+# nj_pick3: NJ Lottery's Pick-3 Green Ball Promotion (Nov 2–29, 2026)
+# adds a second "Double" ball box to evening cards when the green ball
+# is drawn — Nov 5, 2026 evening was Main 3-4-1 + Double 5-3-2, which
+# the parser used to concatenate into a 6-number "draw" and raise a
+# CONFLICT on three straight refreshes (Nov 6 20:43 / 23:43, Nov 7
+# 01:43 EST). Cards without a second box fall back to whole-card
+# parsing (see fetch_lusa_page), so plain evenings are unaffected.
 LUSA_ONLY_BOX = {'mi_fantasy5': 'Regular', 'mi_lotto47': 'Regular',
-                 'co_lotto': 'Main numbers', 'fl_lotto': 'Main Draw', 'il_lotto': 'Jackpot', 'mo_millions': 'Main', 'nc_cash5': 'Main draw', 'nj_pick6': 'Main draw'}
+                 'co_lotto': 'Main numbers', 'fl_lotto': 'Main Draw', 'il_lotto': 'Jackpot', 'mo_millions': 'Main', 'nc_cash5': 'Main draw', 'nj_pick6': 'Main draw',
+                 'nj_pick3': 'Main'}
 
 # Games whose "bonus" ball is the last number of the main draw, not a
 # separate ball — NJ Cash 5's Bullseye is the fifth number drawn
@@ -739,7 +753,11 @@ def fetch_lusa_page(url, only_box=None):
     (Fireball / Wild Ball) render the same way and are ignored by the digit
     merge path (the digit model has no bonus). only_box: if set, take balls
     only from the ball box with that title (e.g. Michigan Fantasy 5 /
-    Lotto 47 'Regular' vs 'Double Play'; Florida Lotto 'Main Draw')."""
+    Lotto 47 'Regular' vs 'Double Play'; Florida Lotto 'Main Draw').
+    Cards that carry no box with that title fall back to all balls in the
+    card — LotteryUSA only renders titled ball boxes on cards that have a
+    second box, so a plain card has no box to match (NJ Pick 3, Nov 2026:
+    only Green Ball Double Draw evenings carry a 'Main' + 'Double' pair)."""
     # Pace the burst: this is the single choke point for all ~241
     # LotteryUSA page fetches per run. Hitting them in rapid succession
     # from one IP trips the source's bot protection (fast 403s).
@@ -761,6 +779,10 @@ def fetch_lusa_page(url, only_box=None):
                     balls = [int(x) for x in re.findall(r'<li class="c-ball[^"]*">\s*(\d+)\s*</li>', part)]
                     scope = part
                     break
+            if not balls:
+                # No titled box on this card (the usual single-draw card):
+                # parse the whole card as before.
+                balls = [int(x) for x in re.findall(r'<li class="c-ball[^"]*">\s*(\d+)\s*</li>', card)]
         else:
             balls = [int(x) for x in re.findall(r'<li class="c-ball[^"]*">\s*(\d+)\s*</li>', card)]
         bonus = None
@@ -938,8 +960,18 @@ def main():
     if mm_err:
         errors.append(mm_err)
 
-    if errors:
-        fail('; '.join(errors))
+    # Partial-failure rule (Nov 2026 — LotteryUSA's Maine pages stopped
+    # parsing): a genuine data CONFLICT is still a hard error (fail,
+    # write nothing), because stored and fetched draws disagree and
+    # publishing either side blindly would be wrong. Every other
+    # per-game failure (request error, unparseable page, empty result,
+    # bad response) is a warning: that game simply doesn't update this
+    # run, while every game that fetched cleanly still publishes. A
+    # failed game never mutates data (fetch_game merges only after it
+    # succeeds), so partial publishing can't write a half-merged game.
+    hard = [e for e in errors if 'CONFLICT' in e]
+    if hard:
+        fail('; '.join(hard))
 
     if added or jackpot_changed:
         tmp = DATA_PATH.with_suffix('.json.tmp')
@@ -947,8 +979,11 @@ def main():
         tmp.replace(DATA_PATH)
 
     through = max(d['date'] for draws in data.values() for d in draws)
-    print(json.dumps({'status': 'updated' if (added or jackpot_changed) else 'nochange',
-                      'added': added, 'through': through}))
+    out = {'status': 'updated' if (added or jackpot_changed) else 'nochange',
+           'added': added, 'through': through}
+    if errors:
+        out['warnings'] = errors
+    print(json.dumps(out))
 
 
 if __name__ == '__main__':
