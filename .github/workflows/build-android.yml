@@ -9,7 +9,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "www/**"
+    
       - "resources/**"
       - "capacitor.config.json"
       - "package.json"
