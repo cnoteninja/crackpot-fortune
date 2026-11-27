@@ -7,7 +7,9 @@ quarantine rule (a CONFLICT skips just that game and is listed in
 'conflicts' while the rest still publishes), partial-failure rule,
 pacing invoked per LotteryUSA page fetch, the fuller browser headers
 flowing to every request path, the run lock, per-row Socrata skips,
-early-exit parsing, and schedule-aware slot skipping.
+early-exit parsing, schedule-aware slot skipping, and the cross-check
+of new draws against second views (aggregator, PA/OH official lanes,
+bitsandodds fallback) with quarantine on disagreement.
 Run: python3 phase3-retry-test.py
 """
 import copy, io, json, os, sys, tempfile, time
@@ -20,6 +22,9 @@ sys.path.insert(0, str(ROOT))
 _TMP = tempfile.mkdtemp(prefix='cf-retry-')
 _DATA = Path(_TMP) / 'draws.json'
 os.environ['CF_DATA'] = str(_DATA)
+# The Powerball fast lane must stay a silent no-op in these tests: if a
+# MUSL key leaked into the environment, main() would hit the live API.
+os.environ.pop('MUSL_API_KEY', None)
 
 import fetch_draws
 import requests
@@ -451,6 +456,326 @@ try:
     fetch_draws.SESSION.get = stub
     fetch_draws.fetch_lusa_page('https://example.invalid/x')
     eq(stub.calls, ['https://example.invalid/x'], 'session: LUSA fetch goes through SESSION.get')
+
+    # ---------- 16. cross-check (item 5): new draws are verified against
+    # a second view; a disagreement quarantines the draw, a stale or
+    # missing second view is no verdict, and a dead source never blocks
+    # the run. ----------
+    AGG = {
+        'multiState': [],
+        'jurisdictions': [
+            {'code': 'OH', 'name': 'Ohio', 'slug': 'ohio', 'draws': [
+                {'gameId': 'oh-pick-3-midday', 'game': 'Pick 3',
+                 'label': 'Pick 3 (Midday)', 'multiState': False,
+                 'drawDate': '2026-11-27', 'numbers': [3, 3, 3],
+                 'bonus': None, 'multiplier': None, 'jackpot': None,
+                 'nextDrawDate': '2026-11-27', 'nextJackpot': None},
+                {'gameId': 'oh-pick-3-evening', 'game': 'Pick 3',
+                 'label': 'Pick 3 (Evening)', 'multiState': False,
+                 'drawDate': '2026-11-26', 'numbers': [1, 2, 3],
+                 'bonus': None, 'multiplier': None, 'jackpot': None,
+                 'nextDrawDate': '2026-11-27', 'nextJackpot': None},
+                {'gameId': 'oh-rolling-cash-5', 'game': 'Rolling Cash 5',
+                 'label': 'Rolling Cash 5', 'multiState': False,
+                 'drawDate': '2026-11-27', 'numbers': [1, 2, 3, 4, 5],
+                 'bonus': None, 'multiplier': None, 'jackpot': None,
+                 'nextDrawDate': '2026-11-27', 'nextJackpot': None},
+            ]},
+            {'code': 'PA', 'name': 'Pennsylvania', 'slug': 'pennsylvania', 'draws': [
+                {'gameId': 'pa-pick-3-day', 'game': 'Pick 3',
+                 'label': 'Pick 3 (Midday)', 'multiState': False,
+                 'drawDate': '2026-11-27', 'numbers': [0, 4, 7],
+                 'bonus': None, 'multiplier': None, 'jackpot': None,
+                 'nextDrawDate': '2026-11-27', 'nextJackpot': None},
+            ]},
+            {'code': 'NC', 'name': 'North Carolina', 'slug': 'north-carolina', 'draws': [
+                {'gameId': 'nc-pick-3-day-midday', 'game': 'Pick 3',
+                 'label': 'Pick 3 (Midday)', 'multiState': False,
+                 'drawDate': '2026-11-27', 'numbers': [4, 8, 0],
+                 'bonus': None, 'multiplier': None, 'jackpot': None,
+                 'nextDrawDate': '2026-11-27', 'nextJackpot': None},
+            ]},
+        ],
+    }
+    PA_FEED = [
+        {'DrawingName': 'PICK 3 (DAY)', 'GameName': 'PICK 3', 'GameBallCount': 3,
+         'DrawingNumbersAsList': ['0', '4', '6', '4'], 'IsMidDayDrawing': True,
+         'DrawingDateAsString': '11/27/2026',
+         'RelatedEveningDrawing': {'DrawingDateAsString': '11/26/2026',
+                                   'DrawingNumbersAsList': ['2', '9', '4', '3']}},
+        {'DrawingName': 'CASH 5', 'GameName': 'CASH 5', 'GameBallCount': 5,
+         'DrawingNumbersAsList': ['1', '2', '3', '4', '5'], 'IsMidDayDrawing': False,
+         'DrawingDateAsString': '11/27/2026', 'RelatedEveningDrawing': {}},
+    ]
+    OH_BLOB_2ROW = [
+        {'DrawGameId': 13, 'Name': 'Pick 3', 'Draws': [
+            {'DrawDate': '2026-11-27T00:00:00',
+             'Numbers': [{'Value': 4, 'Position': 1}, {'Value': 2, 'Position': 2},
+                         {'Value': 6, 'Position': 3}]},
+            {'DrawDate': '2026-11-27T00:00:00',
+             'Numbers': [{'Value': 1, 'Position': 1}, {'Value': 1, 'Position': 2},
+                         {'Value': 1, 'Position': 3}]},
+        ]},
+        {'DrawGameId': 11, 'Name': 'Lucky for Life', 'Draws': [
+            {'DrawDate': '2026-02-21T00:00:00',
+             'Numbers': [{'Value': 1, 'Position': 1}]},
+        ]},
+    ]
+    OH_HTML_2ROW = ('<input type="hidden" id="cmsNumbers" value=\''
+                    + json.dumps(OH_BLOB_2ROW) + '\'>')
+    OH_BLOB_1ROW = [
+        {'DrawGameId': 13, 'Name': 'Pick 3', 'Draws': [
+            {'DrawDate': '2026-11-27T00:00:00',
+             'Numbers': [{'Value': 4, 'Position': 1}, {'Value': 2, 'Position': 2},
+                         {'Value': 6, 'Position': 3}]},
+        ]},
+    ]
+    OH_HTML_1ROW = ('<input type="hidden" id="cmsNumbers" value=\''
+                    + json.dumps(OH_BLOB_1ROW) + '\'>')
+    BO_HTML = ('<html><body>'
+               '<table><tr><th>Other</th></tr><tr><td>x</td></tr></table>'
+               '<table><tr><th>Date</th><th>Draw</th><th>Numbers</th></tr>'
+               '<tr><td>November 27, 2026</td><td>Midday</td>'
+               '<td class="num nums">4 0 7</td></tr>'
+               '<tr><td>November 27, 2026</td><td>Evening</td>'
+               '<td class="num nums">1 2 3</td></tr>'
+               '<tr><td>November 26, 2026</td><td>Midday</td>'
+               '<td class="num nums">9 9 9</td></tr>'
+               '</table></body></html>')
+
+    class XcStub:
+        """URL-keyed cross-check stub. Each source defaults to an empty
+        (no-verdict) answer; 'fail' names the sources that raise."""
+        def __init__(self, agg=None, pa=None, oh=None, bo=None, fail=()):
+            self.agg, self.pa, self.oh, self.bo = agg, pa, oh, bo
+            self.fail = set(fail)
+            self.calls = []
+        def __call__(self, url, headers=None, timeout=None):
+            self.calls.append(url)
+            if 'usalotteryresults' in url:
+                if 'agg' in self.fail:
+                    raise requests.RequestException('503')
+                return FakeResp(rows=self.agg if self.agg is not None else {})
+            if 'palottery' in url:
+                if 'pa' in self.fail:
+                    raise requests.RequestException('503')
+                return FakeResp(rows=self.pa if self.pa is not None else [])
+            if 'ohiolottery' in url:
+                if 'oh' in self.fail:
+                    raise requests.RequestException('503')
+                return FakeResp(text=self.oh if self.oh is not None else '<html></html>')
+            if 'bitsandodds' in url:
+                if 'bo' in self.fail:
+                    raise requests.RequestException('503')
+                return FakeResp(text=self.bo if self.bo is not None else '<html></html>')
+            raise AssertionError(f'unexpected cross-check URL {url}')
+
+    def xc_run(new_draws, data, added, stub, now=None):
+        fetch_draws.SESSION.get = stub
+        if now is None:
+            now = _dt(2026, 11, 27, 14, 0, tzinfo=ET)
+        return fetch_draws.crosscheck_new_draws(new_draws, data, added, now)
+
+    # aggregator: confirm / stale row / missing game
+    data = {'pick3': [{'date': '2026-11-26', 'numbers': [1, 2, 3]},
+                      {'date': '2026-11-26', 'numbers': [2, 2, 2]},
+                      {'date': '2026-11-27', 'numbers': [3, 3, 3]},
+                      {'date': '2026-11-27', 'numbers': [5, 5, 5]}],
+            'classiclotto': [{'date': '2026-11-27', 'numbers': [1, 2, 3, 4, 5, 6]}]}
+    added = {'pick3': 2, 'classiclotto': 1}
+    draws = [{'game': 'pick3', 'date': '2026-11-27', 'slot': 'midday',
+              'numbers': [3, 3, 3], 'bonus': None},
+             {'game': 'pick3', 'date': '2026-11-27', 'slot': 'evening',
+              'numbers': [5, 5, 5], 'bonus': None},
+             {'game': 'classiclotto', 'date': '2026-11-27', 'slot': None,
+              'numbers': [1, 2, 3, 4, 5, 6], 'bonus': None}]
+    s = xc_run(draws, data, added, XcStub(agg=AGG, fail=('pa', 'oh')))
+    eq(s['confirmed'], 1, 'xc: aggregator confirms the matching draw')
+    eq(s['no_verdict'], 2, 'xc: stale row + missing game are no verdict')
+    eq(s['quarantined'], [], 'xc: no quarantine on confirm/no-verdict')
+    eq(added, {'pick3': 2, 'classiclotto': 1}, 'xc: confirmed draws stay in added')
+
+    # aggregator mismatch quarantines (removed from data, added decremented)
+    data = {'pick3': [{'date': '2026-11-26', 'numbers': [1, 2, 3]},
+                      {'date': '2026-11-27', 'numbers': [3, 3, 4]}]}
+    added = {'pick3': 1}
+    draws = [{'game': 'pick3', 'date': '2026-11-27', 'slot': 'midday',
+              'numbers': [3, 3, 4], 'bonus': None}]
+    s = xc_run(draws, data, added, XcStub(agg=AGG, fail=('pa', 'oh')))
+    eq(len(s['quarantined']), 1, 'xc: aggregator mismatch quarantines')
+    q = s['quarantined'][0]
+    eq(q['numbers'], [3, 3, 4], 'xc: quarantine lists the primary numbers')
+    eq(q['second'], [3, 3, 3], 'xc: quarantine lists the second-source numbers')
+    eq(q['source'], 'usalotteryresults', 'xc: quarantine names the source')
+    eq(data['pick3'], [{'date': '2026-11-26', 'numbers': [1, 2, 3]}],
+       'xc: quarantined draw removed from data')
+    eq(added, {}, 'xc: quarantined draw decrements added to zero')
+
+    # digit order is the result; ball games compare sorted
+    data = {'nc_pick3': [{'date': '2026-11-27', 'numbers': [0, 8, 4]}]}
+    added = {'nc_pick3': 1}
+    draws = [{'game': 'nc_pick3', 'date': '2026-11-27', 'slot': 'midday',
+              'numbers': [0, 8, 4], 'bonus': None}]
+    s = xc_run(draws, data, added, XcStub(agg=AGG, fail=('pa', 'oh')))
+    eq(len(s['quarantined']), 1, 'xc: digit order mismatch quarantines')
+    agg2 = copy.deepcopy(AGG)
+    for j in agg2['jurisdictions']:
+        for r in j['draws']:
+            if r['gameId'] == 'nc-pick-3-day-midday':
+                r['numbers'] = [0, 8, 4]
+    data = {'nc_pick3': [{'date': '2026-11-27', 'numbers': [0, 8, 4]}]}
+    added = {'nc_pick3': 1}
+    draws = [{'game': 'nc_pick3', 'date': '2026-11-27', 'slot': 'midday',
+              'numbers': [0, 8, 4], 'bonus': None}]
+    s = xc_run(draws, data, added, XcStub(agg=agg2, fail=('pa', 'oh')))
+    eq(s['confirmed'], 1, 'xc: digit exact order confirms')
+    data = {'rollingcash5': [{'date': '2026-11-27', 'numbers': [5, 4, 3, 2, 1]}]}
+    added = {'rollingcash5': 1}
+    draws = [{'game': 'rollingcash5', 'date': '2026-11-27', 'slot': None,
+              'numbers': [5, 4, 3, 2, 1], 'bonus': None}]
+    s = xc_run(draws, data, added, XcStub(agg=AGG, fail=('pa', 'oh')))
+    eq(s['confirmed'], 1, 'xc: ball games compare sorted')
+
+    # PA: the Wild Ball (last element) is dropped; the related evening
+    # drawing confirms the previous evening's draw
+    data = {'pa_pick3': [{'date': '2026-11-27', 'numbers': [0, 4, 6]},
+                         {'date': '2026-11-26', 'numbers': [2, 9, 4]}]}
+    added = {'pa_pick3': 2}
+    draws = [{'game': 'pa_pick3', 'date': '2026-11-27', 'slot': 'midday',
+              'numbers': [0, 4, 6], 'bonus': None},
+             {'game': 'pa_pick3', 'date': '2026-11-26', 'slot': 'evening',
+              'numbers': [2, 9, 4], 'bonus': None}]
+    s = xc_run(draws, data, added, XcStub(pa=PA_FEED, fail=('agg', 'oh')))
+    eq(s['confirmed'], 2, 'xc: PA Wild Ball dropped, day + related evening confirm')
+    eq(s['quarantined'], [], 'xc: PA draws not quarantined')
+
+    # OH: two same-date rows — first = evening, last = midday
+    data = {'pick3': [{'date': '2026-11-27', 'numbers': [4, 2, 6]},
+                      {'date': '2026-11-27', 'numbers': [1, 1, 1]}]}
+    added = {'pick3': 2}
+    draws = [{'game': 'pick3', 'date': '2026-11-27', 'slot': 'evening',
+              'numbers': [4, 2, 6], 'bonus': None},
+             {'game': 'pick3', 'date': '2026-11-27', 'slot': 'midday',
+              'numbers': [1, 1, 1], 'bonus': None}]
+    s = xc_run(draws, data, added, XcStub(oh=OH_HTML_2ROW, fail=('agg', 'pa')))
+    eq(s['confirmed'], 2, 'xc: OH two-row slot positions confirm')
+    data = {'pick3': [{'date': '2026-11-27', 'numbers': [4, 2, 6]}]}
+    added = {'pick3': 1}
+    draws = [{'game': 'pick3', 'date': '2026-11-27', 'slot': 'midday',
+              'numbers': [4, 2, 6], 'bonus': None}]
+    s = xc_run(draws, data, added, XcStub(oh=OH_HTML_2ROW, fail=('agg', 'pa')))
+    eq(len(s['quarantined']), 1, 'xc: OH midday draw matching the evening row quarantines')
+    eq(data['pick3'], [], 'xc: quarantined OH draw removed from data')
+    # OH: a single row is disambiguated by the clock (evening 19:30)
+    data = {'pick3': [{'date': '2026-11-27', 'numbers': [4, 2, 6]}]}
+    added = {'pick3': 1}
+    draws = [{'game': 'pick3', 'date': '2026-11-27', 'slot': 'midday',
+              'numbers': [4, 2, 6], 'bonus': None}]
+    s = xc_run(draws, data, added, XcStub(oh=OH_HTML_1ROW, fail=('agg', 'pa')),
+               now=_dt(2026, 11, 27, 13, 0, tzinfo=ET))
+    eq(s['confirmed'], 1, 'xc: OH single row at 13:00 confirms midday')
+    draws = [{'game': 'pick3', 'date': '2026-11-27', 'slot': 'evening',
+              'numbers': [4, 2, 6], 'bonus': None}]
+    s = xc_run(draws, data, added, XcStub(oh=OH_HTML_1ROW, fail=('agg', 'pa')),
+               now=_dt(2026, 11, 27, 13, 0, tzinfo=ET))
+    eq(s['no_verdict'], 1, 'xc: OH single row at 13:00 is no verdict for evening')
+    s = xc_run(draws, data, added, XcStub(oh=OH_HTML_1ROW, fail=('agg', 'pa')),
+               now=_dt(2026, 11, 27, 20, 0, tzinfo=ET))
+    eq(s['confirmed'], 1, 'xc: OH single row at 20:00 confirms evening')
+
+    # bitsandodds fallback: finds the Date|Draw|Numbers table (skipping
+    # other tables) and confirms / mismatches on it
+    data = {'nc_pick3': [{'date': '2026-11-27', 'numbers': [4, 0, 7]}]}
+    added = {'nc_pick3': 1}
+    draws = [{'game': 'nc_pick3', 'date': '2026-11-27', 'slot': 'midday',
+              'numbers': [4, 0, 7], 'bonus': None}]
+    stub = XcStub(bo=BO_HTML, fail=('agg', 'pa', 'oh'))
+    s = xc_run(draws, data, added, stub)
+    eq(s['confirmed'], 1, 'xc: bitsandodds table confirms')
+    ok(any('bitsandodds.com/north-carolina/lottery/pick-3/numbers/' in c
+           for c in stub.calls), 'xc: bitsandodds page fetched for the right game')
+    data = {'nc_pick3': [{'date': '2026-11-27', 'numbers': [4, 0, 8]}]}
+    added = {'nc_pick3': 1}
+    draws = [{'game': 'nc_pick3', 'date': '2026-11-27', 'slot': 'midday',
+              'numbers': [4, 0, 8], 'bonus': None}]
+    s = xc_run(draws, data, added, XcStub(bo=BO_HTML, fail=('agg', 'pa', 'oh')))
+    eq(len(s['quarantined']), 1, 'xc: bitsandodds mismatch quarantines')
+    eq(s['quarantined'][0]['source'], 'bitsandodds',
+       'xc: quarantine names bitsandodds')
+
+    # every second source dead: no verdict, never a failure
+    data = {'pick3': [{'date': '2026-11-27', 'numbers': [3, 3, 3]}]}
+    added = {'pick3': 1}
+    draws = [{'game': 'pick3', 'date': '2026-11-27', 'slot': 'midday',
+              'numbers': [3, 3, 3], 'bonus': None}]
+    s = xc_run(draws, data, added, XcStub(fail=('agg', 'pa', 'oh', 'bo')))
+    eq(s, {'confirmed': 0, 'no_verdict': 1, 'contested': 0, 'quarantined': []},
+       'xc: dead second sources are no verdict, never a failure')
+    eq(data['pick3'], [{'date': '2026-11-27', 'numbers': [3, 3, 3]}],
+       'xc: dead sources leave the draw published')
+
+    # an official confirm beats an aggregator mismatch (contested)
+    data = {'pa_pick3': [{'date': '2026-11-27', 'numbers': [0, 4, 6]}]}
+    added = {'pa_pick3': 1}
+    draws = [{'game': 'pa_pick3', 'date': '2026-11-27', 'slot': 'midday',
+              'numbers': [0, 4, 6], 'bonus': None}]
+    s = xc_run(draws, data, added, XcStub(agg=AGG, pa=PA_FEED, fail=('oh',)))
+    eq(s['confirmed'], 1, 'xc: official confirm wins over aggregator mismatch')
+    eq(s['contested'], 1, 'xc: contested counted when sources disagree')
+    eq(data['pa_pick3'], [{'date': '2026-11-27', 'numbers': [0, 4, 6]}],
+       'xc: contested draw stays published')
+
+    # main(): the run cross-checks its new draws and reports the summary
+    def full_fixture():
+        data = {}
+        for game, (count, _mx, has_bonus, _bm, _dist) in fetch_draws.RULES.items():
+            nums = list(range(1, count + 1))
+            entry = {'date': '2026-11-03', 'numbers': nums}
+            if has_bonus:
+                entry['bonus'] = 1
+            if game in fetch_draws.SLOT_GAMES:
+                data[game] = [dict(entry) for _ in fetch_draws.LUSA[game]]
+            else:
+                data[game] = [entry]
+        return data
+
+    class MainXcGet:
+        def __init__(self):
+            self.calls = []
+        def __call__(self, url, headers=None, timeout=None):
+            self.calls.append(url)
+            if 'usalotteryresults' in url:
+                return FakeResp(rows=AGG)
+            if 'palottery' in url or 'ohiolottery' in url or 'bitsandodds' in url:
+                raise requests.RequestException('503')
+            if 'megamillions.com' in url:
+                raise requests.RequestException('503')
+            if 'data.ny.gov' in url:
+                return FakeResp(rows=[])
+            if '/ohio/midday-pick-3/' in url:
+                return FakeResp(text=lusa_page('Nov 27, 2026', [3, 3, 3]))
+            if 'lotteryusa.com' in url:
+                return FakeResp(text=lusa_page('Nov 3, 2026', [1, 2, 3]))
+            raise AssertionError(f'unexpected URL {url}')
+    fetch_draws.SESSION.get = MainXcGet()
+    _DATA.write_text(json.dumps(full_fixture()))
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        try:
+            fetch_draws.main()
+            code = None
+        except SystemExit as e:
+            code = e.code
+    eq(code, None, 'main xc: no exit')
+    out = json.loads(buf.getvalue().strip().splitlines()[-1])
+    eq(out['status'], 'updated', 'main xc: status updated')
+    eq(out['added'], {'pick3': 1}, 'main xc: only the new pick3 draw added')
+    xc = out.get('crosscheck', {})
+    eq(xc.get('confirmed'), 1, 'main xc: crosscheck confirmed the new draw')
+    eq(xc.get('quarantined'), [], 'main xc: nothing quarantined')
+    written = json.loads(_DATA.read_text())
+    eq(written['pick3'][-1], {'date': '2026-11-27', 'numbers': [3, 3, 3]},
+       'main xc: new draw in file')
 
 finally:
     fetch_draws.SESSION.get = orig_get

@@ -39,8 +39,14 @@ CONFLICT between stored and fetched draws for the same date is
 quarantined the same way: that game is skipped (neither side is
 published for it) and the conflict is listed in a 'conflicts' list in
 the output, so the cron worker can flag it for a human decision — but
-it no longer blocks the other 164 games. A run that finds another run
-already holding the lock prints {"status": "locked"} and exits 0.
+it no longer blocks the other 164 games. Newly added draws are also
+cross-checked against a second view before they are written
+(usalotteryresults.com draws.json, the PA official feed, the OH
+official page, bitsandodds archives as fallback); a draw a second
+source disagrees with is quarantined the same way and listed in the
+'crosscheck' summary (confirmed / no_verdict / contested counts plus
+the quarantined draws). A run that finds another run already holding
+the lock prints {"status": "locked"} and exits 0.
 
   - Powerball fast lane (Nov 2026): MUSL's official Winning Numbers
     API, GET api.musl.com/v3/numbers (JSON, latest draw). Key-gated:
@@ -59,8 +65,8 @@ never lose a draw, because a missing slot always forces a fetch.
 LotteryUSA sends no ETag/Last-Modified, so conditional requests are
 not applicable there (checked Nov 27, 2026).
 """
-import fcntl, json, os, re, sys, time
-from datetime import datetime, timedelta
+import fcntl, html, json, os, re, sys, time
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -745,7 +751,7 @@ def fetch_mm_fastlane():
         return None, None
 
 
-def apply_mm_fastlane(data, added):
+def apply_mm_fastlane(data, added, added_draws=None):
     """Merge the fast lane into data (in place). Returns
     (jackpot_changed, error). error is non-None only on a genuine draw
     conflict with stored data (hard error); every other fast-lane
@@ -767,6 +773,11 @@ def apply_mm_fastlane(data, added):
         if n:
             data['megamillions'] = merged
             added['megamillions'] = added.get('megamillions', 0) + n
+            if added_draws is not None:
+                added_draws.append({'game': 'megamillions',
+                                    'date': mm_draw['date'], 'slot': None,
+                                    'numbers': list(mm_draw['numbers']),
+                                    'bonus': mm_draw.get('bonus')})
         # Jackpot: only trust the feed when it is at least as fresh as
         # our stored draws, so a stale feed can never overwrite a newer
         # jackpot entry.
@@ -839,7 +850,7 @@ def fetch_powerball_fastlane():
         return None, None
 
 
-def apply_powerball_fastlane(data, added):
+def apply_powerball_fastlane(data, added, added_draws=None):
     """Merge the Powerball fast lane into data (in place). Returns an
     error string or None; only a genuine draw conflict is an error,
     every other fast-lane failure is swallowed here. Mirrors
@@ -860,6 +871,11 @@ def apply_powerball_fastlane(data, added):
     if n:
         data['powerball'] = merged
         added['powerball'] = added.get('powerball', 0) + n
+        if added_draws is not None:
+            added_draws.append({'game': 'powerball',
+                                'date': pb_draw['date'], 'slot': None,
+                                'numbers': list(pb_draw['numbers']),
+                                'bonus': pb_draw.get('bonus')})
     return None
 
 
@@ -961,10 +977,12 @@ def fetch_lusa_page(url, only_box=None, cutoff=None):
     return found
 
 
-def merge_simple(game, stored, fetched_by_date):
+def merge_simple(game, stored, fetched_by_date, added_draws=None):
     """Non-pick games: keyed union by date within the stored window
     (no backfill earlier than the first stored draw), sorted ascending.
-    fetched_by_date values are {'numbers': [...], 'bonus': n|None}."""
+    fetched_by_date values are {'numbers': [...], 'bonus': n|None}.
+    added_draws (when given) collects the newly added draws as stored
+    ({'date', 'numbers', 'bonus'[, 'slot']}) for the cross-check."""
     first = stored[0]['date'] if stored else '0000-00-00'
     by_date = {d['date']: d for d in stored}
     added = 0
@@ -992,6 +1010,10 @@ def merge_simple(game, stored, fetched_by_date):
                 e['bonus'] = bonus
             by_date[date] = e
             added += 1
+            if added_draws is not None:
+                d = {'game': game, 'date': date, 'slot': None,
+                     'numbers': list(nums), 'bonus': bonus}
+                added_draws.append(d)
         elif by_date[date]['numbers'] != nums or by_date[date].get('bonus') != bonus:
             raise ValueError(f'{game}: CONFLICT on {date}: stored {by_date[date]} vs fetched {entry}')
     return sorted(by_date.values(), key=lambda d: d['date']), added
@@ -1059,11 +1081,13 @@ def _cutoff_for(newest_date):
     return d.isoformat()
 
 
-def merge_picks(game, stored, slot_maps):
+def merge_picks(game, stored, slot_maps, added_draws=None):
     """Pick games: stored order within a date is midday, evening, then
     night (only games with three draws a day use the night slot).
     slot_maps: {'midday': {date: digits}, 'evening': {...}, 'night': {...}}
-    An empty stored list seeds from whatever the source returns."""
+    An empty stored list seeds from whatever the source returns.
+    added_draws (when given) collects the newly added draws as stored
+    ({'game', 'date', 'slot', 'numbers', 'bonus': None})."""
     first = stored[0]['date'] if stored else '0000-00-00'
     by_key = {}
     from collections import Counter
@@ -1089,6 +1113,10 @@ def merge_picks(game, stored, slot_maps):
                     raise ValueError(err + f' (date {date} {slot})')
                 by_key[key] = nums
                 added += 1
+                if added_draws is not None:
+                    added_draws.append({'game': game, 'date': date,
+                                        'slot': slot, 'numbers': list(nums),
+                                        'bonus': None})
             elif by_key[key] != nums:
                 raise ValueError(f'{game}: CONFLICT {date} {slot}: stored {by_key[key]} vs fetched {nums}')
     merged = [{'date': d, 'numbers': by_key[(d, s)]}
@@ -1107,13 +1135,14 @@ def _is_retryable(err):
     return isinstance(err, ValueError) and 'CONFLICT' not in str(err)
 
 
-def fetch_game(game, data, warnings=None, now_et=None):
+def fetch_game(game, data, warnings=None, now_et=None, added_draws=None):
     """Fetch and merge one game in place; returns the number of draws
     added. Raises on any failure. Safe to retry: a failed attempt never
     mutates data (merges only assign after they succeed). warnings: a
     list the caller supplies; per-row non-fatal notes are appended to
     it. now_et: injectable clock (America/New_York) for the
-    schedule-aware slot skip; defaults to now."""
+    schedule-aware slot skip; defaults to now. added_draws: when given,
+    collects the newly added draws (with slot) for the cross-check."""
     if warnings is None:
         warnings = []
     if now_et is None:
@@ -1130,6 +1159,12 @@ def fetch_game(game, data, warnings=None, now_et=None):
                         raise ValueError(f'{game}: Socrata returned non-newer draw {e}')
             stored.extend(new)
             data[game] = stored
+            if added_draws is not None:
+                for e in new:
+                    added_draws.append({'game': game, 'date': e['date'],
+                                        'slot': None,
+                                        'numbers': list(e['numbers']),
+                                        'bonus': e.get('bonus')})
             return len(new)
     elif game in SOCRATA_SLOTS:
         # Fetch since the newest stored date (minus one day of overlap,
@@ -1145,7 +1180,7 @@ def fetch_game(game, data, warnings=None, now_et=None):
             since = SEED_SINCE.get(game, '2020-01-01')
         slot_maps, row_warnings = fetch_socrata_slots(game, since)
         warnings.extend(row_warnings)
-        merged, n = merge_picks(game, stored, slot_maps)
+        merged, n = merge_picks(game, stored, slot_maps, added_draws)
         if n:
             data[game] = merged
         return n
@@ -1158,7 +1193,7 @@ def fetch_game(game, data, warnings=None, now_et=None):
             slot_maps[slot] = fetch_lusa_page(
                 url, LUSA_ONLY_BOX.get(game),
                 cutoff=_cutoff_for(newest_by_slot.get(slot)))
-        merged, n = merge_picks(game, stored, slot_maps)
+        merged, n = merge_picks(game, stored, slot_maps, added_draws)
         if n:
             data[game] = merged
         return n
@@ -1166,32 +1201,778 @@ def fetch_game(game, data, warnings=None, now_et=None):
         cutoff = _cutoff_for(stored[-1]['date'] if stored else None)
         fmap = fetch_lusa_page(LUSA[game][0][1], LUSA_ONLY_BOX.get(game),
                                cutoff=cutoff)
-        merged, n = merge_simple(game, stored, fmap)
+        merged, n = merge_simple(game, stored, fmap, added_draws)
         if n:
             data[game] = merged
         return n
     return 0
 
 
-def fetch_game_with_retry(game, data, warnings=None, now_et=None):
+def fetch_game_with_retry(game, data, warnings=None, now_et=None, added_draws=None):
     """One attempt, then one retry after RETRY_SECONDS for transient
     failures. Returns (added_count, error_str_or_None). Warnings
     collected by the first attempt are rolled back before the retry so
-    they are not reported twice."""
+    they are not reported twice; added_draws collected by a failed
+    attempt are rolled back the same way (a failed merge never mutates
+    data, so its draws must not reach the cross-check)."""
     if warnings is None:
         warnings = []
     mark = len(warnings)
+    dmark = len(added_draws) if added_draws is not None else 0
     try:
-        return fetch_game(game, data, warnings, now_et), None
+        return fetch_game(game, data, warnings, now_et, added_draws), None
     except Exception as e:
         if not _is_retryable(e):
+            if added_draws is not None:
+                del added_draws[dmark:]
             return 0, str(e)
         del warnings[mark:]
+        if added_draws is not None:
+            del added_draws[dmark:]
         time.sleep(RETRY_SECONDS)
         try:
-            return fetch_game(game, data, warnings, now_et), None
+            return fetch_game(game, data, warnings, now_et, added_draws), None
         except Exception as e2:
+            if added_draws is not None:
+                del added_draws[dmark:]
             return 0, str(e2)
+
+
+XCHECK_GAMEIDS = {
+    'ar_cash3': {'evening': 'ar-cash-3-evening', 'midday': 'ar-cash-3-midday'},
+    'ar_cash4': {'evening': 'ar-cash-4-evening', 'midday': 'ar-cash-4-midday'},
+    'ar_lotto': {None: 'ar-natural-state-jackpot'},
+    'ar_naturalstate': {None: 'ar-natural-state-jackpot'},
+    'az_fantasy5': {None: 'az-fantasy-5'},
+    'az_thepick': {None: 'az-the-pick'},
+    'az_tripletwist': {None: 'az-triple-twist'},
+    'ca_daily3': {'evening': 'ca-daily-3-evening', 'midday': 'ca-daily-3-midday'},
+    'ca_daily4': {None: 'ca-daily-4'},
+    'ca_fantasy5': {None: 'ca-fantasy-5'},
+    'ca_superlotto': {None: 'ca-superlotto-plus'},
+    'classiclotto': {None: 'oh-classic-lotto'},
+    'co_cash5': {None: 'co-cash-5'},
+    'co_lotto': {None: 'co-lotto'},
+    'co_pick3': {'evening': 'co-pick-3-evening', 'midday': 'co-pick-3-midday'},
+    'ct_cash5': {None: 'ct-cash-5'},
+    'ct_classiclotto': {None: 'ct-lotto'},
+    'ct_play3': {'evening': 'ct-play3-night', 'midday': 'ct-play3-day'},
+    'ct_play4': {'evening': 'ct-play4-night', 'midday': 'ct-play4-day'},
+    'dc_3': {'evening': 'dc-dc-3-evening', 'midday': 'dc-dc-3-midday'},
+    'dc_4': {'evening': 'dc-dc-4-evening', 'midday': 'dc-dc-4-midday'},
+    'dc_5': {'evening': 'dc-dc-5-evening', 'midday': 'dc-dc-5-midday'},
+    'de_play3': {'evening': 'de-play-3-night', 'midday': 'de-play-3-day'},
+    'de_play4': {'evening': 'de-play-4-night', 'midday': 'de-play-4-day'},
+    'fl_fantasy5': {'evening': 'fl-fantasy-5-evening', 'midday': 'fl-fantasy-5-midday'},
+    'fl_jackpottripleplay': {None: 'fl-jackpot-triple-play'},
+    'fl_lotto': {None: 'fl-lotto'},
+    'fl_pick2': {'evening': 'fl-pick-2-evening', 'midday': 'fl-pick-2-midday'},
+    'fl_pick3': {'evening': 'fl-pick-3-evening', 'midday': 'fl-pick-3-midday'},
+    'fl_pick4': {'evening': 'fl-pick-4-evening', 'midday': 'fl-pick-4-midday'},
+    'fl_pick5': {'evening': 'fl-pick-5-evening', 'midday': 'fl-pick-5-midday'},
+    'ga_cash3': {'evening': 'ga-cash-3-evening', 'midday': 'ga-cash-3-midday', 'night': 'ga-cash-3-night'},
+    'ga_cash4': {'evening': 'ga-cash-4-evening', 'midday': 'ga-cash-4-midday', 'night': 'ga-cash-4-night'},
+    'ga_fantasy5': {None: 'ga-fantasy-5'},
+    'ga_georgiafive': {'evening': 'ga-georgia-five-evening', 'midday': 'ga-georgia-five-midday'},
+    'ia_pick3': {'evening': 'ia-pick-3-evening', 'midday': 'ia-pick-3-midday'},
+    'ia_pick4': {'evening': 'ia-pick-4-evening', 'midday': 'ia-pick-4-midday'},
+    'id_idahocash': {None: 'id-idaho-cash'},
+    'id_pick3': {'evening': 'id-pick-3-night', 'midday': 'id-pick-3-day'},
+    'id_pick4': {'evening': 'id-pick-4-night', 'midday': 'id-pick-4-day'},
+    'il_lotto': {None: 'il-lotto'},
+    'il_luckydaylotto': {'evening': 'il-luckyday-lotto-evening', 'midday': 'il-luckyday-lotto-midday'},
+    'il_pick3': {'evening': 'il-pick-3-evening', 'midday': 'il-pick-3-midday'},
+    'il_pick4': {'evening': 'il-pick-4-evening', 'midday': 'il-pick-4-midday'},
+    'in_daily3': {'evening': 'in-daily-3-evening', 'midday': 'in-daily-3-midday'},
+    'in_daily4': {'evening': 'in-daily-4-evening', 'midday': 'in-daily-4-midday'},
+    'ks_pick3': {'evening': 'ks-pick-3-evening', 'midday': 'ks-pick-3-midday'},
+    'ks_superkansas': {None: 'ks-super-cash'},
+    'ky_pick3': {'evening': 'ky-pick-3-evening', 'midday': 'ky-pick-3-midday'},
+    'ky_pick4': {'evening': 'ky-pick-4-evening', 'midday': 'ky-pick-4-midday'},
+    'la_easy5': {None: 'la-easy-5'},
+    'la_lotto': {None: 'la-lotto'},
+    'la_pick3': {None: 'la-pick-3'},
+    'la_pick4': {None: 'la-pick-4'},
+    'la_pick5': {None: 'la-pick-5'},
+    'lottoamerica': {None: 'lotto-america'},
+    'ma_megabucks': {None: 'ma-megabucks-doubler'},
+    'ma_numbers': {'evening': 'ma-numbers-evening', 'midday': 'ma-numbers-midday'},
+    'md_bonusmatch5': {None: 'md-bonus-match-5'},
+    'md_multimatch': {None: 'md-multimatch'},
+    'md_pick3': {'evening': 'md-pick-3-evening', 'midday': 'md-pick-3-midday'},
+    'md_pick4': {'evening': 'md-pick-4-evening', 'midday': 'md-pick-4-midday'},
+    'md_pick5': {'evening': 'md-pick-5-evening', 'midday': 'md-pick-5-midday'},
+    'me_pick3': {'evening': 'me-pick-3-evening', 'midday': 'me-pick-3-day'},
+    'me_pick4': {'evening': 'me-pick-4-evening', 'midday': 'me-pick-4-day'},
+    'megamillions': {None: 'mega-millions'},
+    'mi_daily3': {'evening': 'mi-daily-3-evening', 'midday': 'mi-daily-3-midday'},
+    'mi_daily4': {'evening': 'mi-daily-4-evening', 'midday': 'mi-daily-4-midday'},
+    'mi_fantasy5': {None: 'mi-fantasy-5'},
+    'mi_lotto47': {None: 'mi-classic-lotto-regular'},
+    'mn_daily3': {None: 'mn-daily-3'},
+    'mn_gopher5': {None: 'mn-gopher-5'},
+    'mn_north5': {None: 'mn-northstar-cash'},
+    'mo_pick3': {'evening': 'mo-pick-3-evening', 'midday': 'mo-pick-3-midday'},
+    'mo_pick4': {'evening': 'mo-pick-4-evening'},
+    'mo_showme': {None: 'mo-show-me-cash'},
+    'ms_cash3': {'evening': 'ms-cash-3-evening', 'midday': 'ms-cash-3-midday'},
+    'ms_cash4': {'evening': 'ms-cash-4-evening', 'midday': 'ms-cash-4-midday'},
+    'ms_match5': {None: 'ms-match-5'},
+    'mt_bigskyb': {None: 'mt-big-sky-bonus'},
+    'mt_cash': {None: 'mt-montana-cash'},
+    'nc_cash5': {None: 'nc-cash-5'},
+    'nc_pick3': {'evening': 'nc-pick-3-evening', 'midday': 'nc-pick-3-day-midday'},
+    'nc_pick4': {'evening': 'nc-pick-4-evening', 'midday': 'nc-pick-4-day-midday'},
+    'ne_pick3': {None: 'ne-pick-3'},
+    'ne_pick5': {None: 'ne-pick-5'},
+    'nh_pick3': {'evening': 'nh-pick-3-evening', 'midday': 'nh-pick-3-day'},
+    'nh_pick4': {'evening': 'nh-pick-4-evening', 'midday': 'nh-pick-4-day'},
+    'nj_cash5': {None: 'nj-cash-5'},
+    'nj_pick3': {'evening': 'nj-pick-3-evening', 'midday': 'nj-pick-3-midday'},
+    'nj_pick4': {'evening': 'nj-pick-4-evening', 'midday': 'nj-pick-4-midday'},
+    'nj_pick6': {None: 'nj-pick-6-lotto'},
+    'nm_pick3plus': {'evening': 'nm-pick-3-evening', 'midday': 'nm-pick-3-day'},
+    'nm_pick4plus': {'evening': 'nm-pick-4-evening', 'midday': 'nm-pick-4-day'},
+    'nm_roadrunner': {None: 'nm-roadrunner-cash'},
+    'ny_lotto': {None: 'ny-lotto'},
+    'ny_numbers': {'evening': 'ny-numbers-evening', 'midday': 'ny-numbers-midday'},
+    'ny_pick10': {None: 'ny-pick-10'},
+    'ny_take5': {'evening': 'ny-take-5-evening', 'midday': 'ny-take-5-midday'},
+    'ny_win4': {'evening': 'ny-win-4-evening', 'midday': 'ny-win-4-midday'},
+    'ok_cash5': {None: 'ok-cash-5'},
+    'ok_pick3': {None: 'ok-pick-3'},
+    'or_megabucks': {None: 'or-megabucks'},
+    'or_winforlife': {None: 'or-win-for-life'},
+    'pa_cash5': {None: 'pa-cash-5'},
+    'pa_match6': {None: 'pa-match-6-lotto'},
+    'pa_pick2': {'evening': 'pa-pick-2-evening', 'midday': 'pa-pick-2-day'},
+    'pa_pick3': {'evening': 'pa-pick-3-evening', 'midday': 'pa-pick-3-day'},
+    'pa_pick4': {'evening': 'pa-pick-4-evening', 'midday': 'pa-pick-4-day'},
+    'pa_pick5': {'evening': 'pa-pick-5-evening', 'midday': 'pa-pick-5-day'},
+    'pa_treasurehunt': {None: 'pa-treasure-hunt'},
+    'pick3': {'evening': 'oh-pick-3-evening', 'midday': 'oh-pick-3-midday'},
+    'pick4': {'evening': 'oh-pick-4-evening', 'midday': 'oh-pick-4-midday'},
+    'pick5': {'evening': 'oh-pick-5-evening', 'midday': 'oh-pick-5-midday'},
+    'powerball': {None: 'powerball'},
+    'pr_lotoplus': {None: 'pr-loto-plus'},
+    'pr_pega2': {'evening': 'pr-pega-2-night', 'midday': 'pr-pega-2-day'},
+    'pr_pega3': {'evening': 'pr-pega-3-night', 'midday': 'pr-pega-3-day'},
+    'pr_pega4': {'evening': 'pr-pega-4-night', 'midday': 'pr-pega-4-day'},
+    'ri_numbers': {'evening': 'ri-numbers-evening', 'midday': 'ri-numbers-midday'},
+    'ri_wildmoney': {None: 'ri-wild-money'},
+    'rollingcash5': {None: 'oh-rolling-cash-5'},
+    'sc_palmetto5': {None: 'sc-palmetto-cash-5'},
+    'sc_pick3': {'evening': 'sc-pick-3-evening', 'midday': 'sc-pick-3-midday'},
+    'sc_pick4': {'evening': 'sc-pick-4-evening', 'midday': 'sc-pick-4-midday'},
+    'sd_dakotacash': {None: 'sd-dakota-cash'},
+    'tn_cash3': {'evening': 'tn-cash-3-midday', 'midday': 'tn-cash-3-morning', 'night': 'tn-cash-3-evening'},
+    'tn_cash4': {'evening': 'tn-cash-4-midday', 'midday': 'tn-cash-4-morning', 'night': 'tn-cash-4-evening'},
+    'tn_dailyjackpot': {None: 'tn-daily-tennessee-jackpot'},
+    'tn_tncash': {None: 'tn-tennessee-cash'},
+    'tristate_gimme5': {None: 'gimme-5'},
+    'tristate_megabucks': {None: 'tri-state-megabucks'},
+    'tx_cashfive': {None: 'tx-cash-5'},
+    'tx_lottotexas': {None: 'tx-lotto-texas'},
+    'tx_twostep': {None: 'tx-texas-two-step'},
+    'va_bankamillion': {None: 'va-bank-a-million'},
+    'va_cash5': {None: 'va-cash-5'},
+    'va_pick3': {'evening': 'va-pick-3-night', 'midday': 'va-pick-3-day'},
+    'va_pick4': {'evening': 'va-pick-4-night', 'midday': 'va-pick-4-day'},
+    'va_pick5': {'evening': 'va-pick-5-night', 'midday': 'va-pick-5-day'},
+    'vt_pick3': {'evening': 'vt-pick-3-evening', 'midday': 'vt-pick-3-day'},
+    'vt_pick4': {'evening': 'vt-pick-4-evening', 'midday': 'vt-pick-4-day'},
+    'wa_daily': {None: 'wa-daily-game'},
+    'wa_hit5': {None: 'wa-hit-5'},
+    'wa_lotto': {None: 'wa-lotto'},
+    'wa_match4': {None: 'wa-match-4'},
+    'wi_badger5': {None: 'wi-badger-5'},
+    'wi_megabucks': {None: 'wi-megabucks'},
+    'wi_pick3': {'evening': 'wi-pick-3-evening', 'midday': 'wi-pick-3-midday'},
+    'wi_pick4': {'evening': 'wi-pick-4-evening', 'midday': 'wi-pick-4-midday'},
+    'wi_supercash': {None: 'wi-super-cash'},
+    'wv_cash25': {None: 'wv-cash-25'},
+    'wv_daily3': {None: 'wv-daily-3'},
+    'wv_daily4': {None: 'wv-daily-4'},
+    'wy_cowboydraw': {None: 'wy-cowboy-draw'},
+}
+
+
+BO_SLUGS = {
+    'ar_cash3': 'cash-3',
+    'ar_cash4': 'cash-4',
+    'ar_lotto': 'natural-state-jackpot',
+    'ar_naturalstate': 'natural-state-jackpot',
+    'az_fantasy5': 'fantasy-5',
+    'az_pick3': 'pick-3',
+    'az_pick4': 'pick-4',
+    'az_thepick': 'the-pick',
+    'az_tripletwist': 'triple-twist',
+    'ca_daily3': 'daily-3',
+    'ca_daily4': 'daily-4',
+    'ca_fantasy5': 'fantasy-5',
+    'ca_superlotto': 'superlotto-plus',
+    'classiclotto': 'classic-lotto',
+    'co_cash5': 'cash-5',
+    'co_lotto': 'lotto',
+    'co_pick3': 'pick-3',
+    'ct_cash5': 'cash-5',
+    'ct_classiclotto': 'lotto',
+    'ct_play3': 'play3',
+    'ct_play4': 'play4',
+    'dc_3': 'dc-3',
+    'dc_4': 'dc-4',
+    'dc_5': 'dc-5',
+    'de_lotto': 'lotto',
+    'de_play3': 'play-3',
+    'de_play4': 'play-4',
+    'de_play5': 'play-5',
+    'fl_fantasy5': 'fantasy-5',
+    'fl_jackpottripleplay': 'jackpot-triple-play',
+    'fl_lotto': 'lotto',
+    'fl_pick2': 'pick-2',
+    'fl_pick3': 'pick-3',
+    'fl_pick4': 'pick-4',
+    'fl_pick5': 'pick-5',
+    'ga_cash3': 'cash-3',
+    'ga_cash4': 'cash-4',
+    'ga_fantasy5': 'fantasy-5',
+    'ga_georgiafive': 'georgia-five',
+    'ia_pick3': 'pick-3',
+    'ia_pick4': 'pick-4',
+    'id_idahocash': 'idaho-cash',
+    'id_pick3': 'pick-3',
+    'id_pick4': 'pick-4',
+    'il_lotto': 'lotto',
+    'il_luckydaylotto': 'luckyday-lotto',
+    'il_pick3': 'pick-3',
+    'il_pick4': 'pick-4',
+    'in_daily3': 'daily-3',
+    'in_daily4': 'daily-4',
+    'ks_pick3': 'pick-3',
+    'ks_superkansas': 'super-cash',
+    'ky_pick3': 'pick-3',
+    'ky_pick4': 'pick-4',
+    'la_easy5': 'easy-5',
+    'la_lotto': 'lotto',
+    'la_pick3': 'pick-3',
+    'la_pick4': 'pick-4',
+    'la_pick5': 'pick-5',
+    'lottoamerica': None,
+    'ma_mass3': 'mass-3',
+    'ma_mass4': 'mass-4',
+    'ma_masscash': 'masscash',
+    'ma_megabucks': 'megabucks-doubler',
+    'ma_numbers': 'numbers',
+    'md_bonusmatch5': 'bonus-match-5',
+    'md_multimatch': 'multimatch',
+    'md_pick3': 'pick-3',
+    'md_pick4': 'pick-4',
+    'md_pick5': 'pick-5',
+    'me_pick3': 'pick-3',
+    'me_pick4': 'pick-4',
+    'megamillions': None,
+    'mi_daily3': 'daily-3',
+    'mi_daily4': 'daily-4',
+    'mi_daily5': 'daily-5',
+    'mi_fantasy5': 'fantasy-5',
+    'mi_lotto47': 'lotto-47',
+    'mn_daily3': 'daily-3',
+    'mn_gopher5': 'gopher-5',
+    'mn_north5': 'northstar-cash',
+    'mo_millions': 'mo-millions',
+    'mo_pick3': 'pick-3',
+    'mo_pick4': 'pick-4',
+    'mo_showme': 'show-me-cash',
+    'ms_cash3': 'cash-3',
+    'ms_cash4': 'cash-4',
+    'ms_match5': 'match-5',
+    'mt_bigskyb': 'big-sky-bonus',
+    'mt_cash': 'montana-cash',
+    'nc_cash5': 'cash-5',
+    'nc_pick3': 'pick-3',
+    'nc_pick4': 'pick-4',
+    'ne_pick3': 'pick-3',
+    'ne_pick5': 'pick-5',
+    'nh_pick3': 'pick-3',
+    'nh_pick4': 'pick-4',
+    'nj_cash5': 'cash-5',
+    'nj_pick3': 'pick-3',
+    'nj_pick4': 'pick-4',
+    'nj_pick6': 'pick-6-lotto',
+    'nm_pick3plus': 'pick-3',
+    'nm_pick4plus': 'pick-4',
+    'nm_roadrunner': 'roadrunner-cash',
+    'ny_lotto': None,
+    'ny_numbers': None,
+    'ny_pick10': None,
+    'ny_take5': None,
+    'ny_win4': None,
+    'ok_cash5': 'cash-5',
+    'ok_pick3': 'pick-3',
+    'or_megabucks': 'megabucks',
+    'or_winforlife': 'win-for-life',
+    'pa_cash5': 'cash-5',
+    'pa_match6': 'match-6-lotto',
+    'pa_pick2': 'pick-2',
+    'pa_pick3': 'pick-3',
+    'pa_pick4': 'pick-4',
+    'pa_pick5': 'pick-5',
+    'pa_treasurehunt': 'treasure-hunt',
+    'pick3': 'pick-3',
+    'pick4': 'pick-4',
+    'pick5': 'pick-5',
+    'powerball': None,
+    'pr_lotoplus': 'loto-plus',
+    'pr_pega2': 'pega-2',
+    'pr_pega3': 'pega-3',
+    'pr_pega4': 'pega-4',
+    'ri_numbers': 'numbers',
+    'ri_wildmoney': 'wild-money',
+    'rollingcash5': 'rolling-cash-5',
+    'sc_palmetto5': 'palmetto-cash-5',
+    'sc_pick3': 'pick-3',
+    'sc_pick4': 'pick-4',
+    'sd_dakotacash': 'dakota-cash',
+    'tn_cash3': 'cash-3',
+    'tn_cash4': 'cash-4',
+    'tn_dailyjackpot': 'daily-tennessee-jackpot',
+    'tn_tncash': 'tennessee-cash',
+    'tristate_gimme5': 'tri-state-gimme-5',
+    'tristate_megabucks': 'tri-state-megabucks',
+    'tx_cashfive': 'cash-5',
+    'tx_lottotexas': 'lotto-texas',
+    'tx_twostep': 'texas-two-step',
+    'va_bankamillion': 'bank-a-million',
+    'va_cash5': 'cash-5',
+    'va_pick3': 'pick-3',
+    'va_pick4': 'pick-4',
+    'va_pick5': 'pick-5',
+    'vt_pick3': 'pick-3',
+    'vt_pick4': 'pick-4',
+    'wa_daily': 'daily-game',
+    'wa_hit5': 'hit-5',
+    'wa_lotto': 'lotto',
+    'wa_match4': 'match-4',
+    'wi_badger5': 'badger-5',
+    'wi_megabucks': 'megabucks',
+    'wi_pick3': 'pick-3',
+    'wi_pick4': 'pick-4',
+    'wi_supercash': 'supercash',
+    'wv_cash25': 'cash-25',
+    'wv_daily3': 'daily-3',
+    'wv_daily4': 'daily-4',
+    'wy_cowboydraw': 'cowboy-draw',
+}
+
+# bitsandodds state slugs that differ from the LUSA state segment
+# (Tri-State games live under Vermont there).
+BO_STATE_OVERRIDES = {
+    'tristate_gimme5': 'vermont',
+    'tristate_megabucks': 'vermont',
+}
+
+
+# ------------------------------------------------------------------
+# Cross-check (item 5, Nov 2026): verify newly added draws against a
+# second view before they are written to the published file.
+#
+# Design (from the two research passes, Nov 27 2026):
+# - Primary second view: usalotteryresults.com/api/draws.json — one
+#   free keyless JSON fetch, latest draw per game/slot, all 47
+#   jurisdictions. It is an aggregator, not the operator, and whole
+#   feeds go stale for weeks (AZ, LA, WA Lotto, NY Lotto, OH games,
+#   DC midday, KS Super Kansas, FL Jackpot Triple Play were stale on
+#   Nov 27) — so the gate is per-row: a row only counts when its
+#   drawDate EQUALS the new draw's date. A stale/missing row is
+#   "no verdict", never a disagreement.
+# - Official lanes (higher trust): PA's DrawingsData JSON feed (one
+#   request, all PA games) and OH's winning-numbers page (embedded
+#   JSON in the #cmsNumbers input). NJ/NC/FL/MI/WI have no usable
+#   plain-GET official source — aggregators only.
+# - Fallback: bitsandodds.com per-game archive pages (Date|Draw|
+#   Numbers table, ~120 draws) for games the other sources can't
+#   confirm. Bounded: at most XC_BO_MAX_FETCHES pages per run.
+# - NOT built, deliberately: a LotteryUSA-vs-LotteryUSA check (same
+#   backend — cannot catch an upstream data error, the exact failure
+#   a second view is for) and any paid/keyed API.
+#
+# Verdicts per new draw: 'confirm' (some source agrees) publishes;
+# 'mismatch' (a source disagrees AND no source confirms) quarantines
+# the draw — it is removed from the in-memory data, never written,
+# and listed in the run output for human review, exactly like a
+# CONFLICT. A second source can itself be wrong (LotteryValley still
+# showed the wrong NC Cash 5 value days after the correction), so a
+# disagreement never silently overwrites stored data, and one
+# confirmation suffices when sources disagree with each other
+# (counted as 'contested'). A missing/stale second view never blocks
+# the run: the draw publishes on format validation alone.
+#
+# Slot mapping in XCHECK_GAMEIDS is by the draw time encoded in the
+# LUSA URL slug (see the generator in /tmp/cf-test/gen_xcheck.py) —
+# our slot labels are shifted for TN Cash 3/4. A wrong slot mapping
+# would false-confirm or false-quarantine, so the table was verified
+# against the live aggregator payload (same-date draws matched for
+# every override) before it was baked in. Regenerate the table when
+# the aggregator renames a gameId or a game is added; a missing entry
+# is safe (no verdict).
+# ------------------------------------------------------------------
+XC_AGG_URL = 'https://www.usalotteryresults.com/api/draws.json'
+XC_PA_URL = ('https://www.palottery.pa.gov/Custom/feeds/'
+             'DrawingsData.aspx?game=pick%203')
+XC_OH_URL = ('https://www.ohiolottery.com/winningnumbers/'
+             'index?aliaspath=/WinningNumbers/Index')
+XC_BO_BASE = 'https://bitsandodds.com'
+XC_BO_MAX_FETCHES = 25
+XC_PACE_SECONDS = 0.5  # politeness pause between cross-check fetches
+
+# Our PA game -> PA feed GameName.
+PA_GAME_NAMES = {
+    'pa_pick2': 'PICK 2', 'pa_pick3': 'PICK 3', 'pa_pick4': 'PICK 4',
+    'pa_pick5': 'PICK 5', 'pa_cash5': 'CASH 5', 'pa_match6': 'MATCH 6',
+    'pa_treasurehunt': 'TREASURE HUNT',
+}
+# Our OH game -> OH DrawGameId (verified against the live page Nov 27).
+# 13=Pick 3, 14=Pick 4, 25=Pick 5, 24=Rolling Cash 5, 26=Classic Lotto,
+# 38=Millionaire for Life, 12=Mega Millions, 15=Powerball.
+# (11=Lucky for Life is retired — deliberately absent.)
+OH_GAME_IDS = {
+    'pick3': 13, 'pick4': 14, 'pick5': 25, 'rollingcash5': 24,
+    'classiclotto': 26, 'millionaireforlife': 38,
+    'megamillions': 12, 'powerball': 15,
+}
+# OH evening draw time (Pick 3/4/5): used only to disambiguate a lone
+# same-date row in the OH blob (see fetch_xcheck_oh).
+OH_EVENING_HOUR = 19
+OH_EVENING_MINUTE = 30
+
+# bitsandodds Draw-column labels -> our slot labels.
+BO_SLOT_LABELS = {'midday': 'midday', 'day': 'midday', 'evening': 'evening',
+                  'night': 'night', 'morning': 'morning',
+                  'afternoon': 'afternoon'}
+
+
+def _draws_match(game, numbers, bonus, ref_numbers, ref_bonus):
+    """Compare a primary draw against a second-source draw. Digit games
+    (max 9): exact sequence — order IS the result. Ball games: sorted
+    comparison — draw order is not the result. A bonus is compared only
+    when both sides have one (a source that doesn't report it can't
+    contradict it). Add-on balls (Fireball, Wild Ball, Double Play,
+    multipliers) are never compared — neither model carries them."""
+    if game in DIGITS:
+        if list(numbers) != list(ref_numbers):
+            return False
+    else:
+        if sorted(numbers) != sorted(ref_numbers):
+            return False
+    if bonus is not None and ref_bonus is not None and bonus != ref_bonus:
+        return False
+    return True
+
+
+def _ref_bonus(game, ref_numbers, ref_bonus):
+    """Normalise a second source's bonus for comparison: digit games
+    have none; a bonus list (aggregator) yields its single element."""
+    if game in DIGITS:
+        return None
+    if isinstance(ref_bonus, list):
+        return ref_bonus[0] if ref_bonus else None
+    return ref_bonus
+
+
+def fetch_xcheck_aggregator():
+    """usalotteryresults draws.json -> {gameId: row} or None when the
+    fetch or parse fails (the run then skips this source silently).
+    No global freshness gate: the payload as a whole can be fresh
+    while individual feeds are weeks stale, so staleness is judged
+    per row at compare time (row.drawDate must equal the draw's date)."""
+    try:
+        time.sleep(XC_PACE_SECONDS)
+        payload = _http_get(XC_AGG_URL).json()
+    except Exception:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    rows = {}
+    for grp in payload.get('multiState', []) or []:
+        if not isinstance(grp, dict):
+            continue
+        for row in grp.get('draws', []) or []:
+            if isinstance(row, dict) and row.get('gameId'):
+                rows[row['gameId']] = row
+    for j in payload.get('jurisdictions', []) or []:
+        if not isinstance(j, dict):
+            continue
+        for row in j.get('draws', []) or []:
+            if isinstance(row, dict) and row.get('gameId'):
+                rows[row['gameId']] = row
+    return rows or None
+
+
+def _pa_date(s):
+    """'11/27/2026' -> '2026-11-27'; None on anything else."""
+    if not isinstance(s, str):
+        return None
+    m = re.fullmatch(r'(\d{1,2})/(\d{1,2})/(\d{4})', s.strip())
+    if not m:
+        return None
+    mo, d, y = (int(x) for x in m.groups())
+    try:
+        return date(y, mo, d).isoformat()
+    except ValueError:
+        return None
+
+
+def fetch_xcheck_pa():
+    """PA DrawingsData feed -> {(GameName, date, is_midday): [numbers]}
+    or None on failure. Takes the first GameBallCount elements of
+    DrawingNumbersAsList — the Wild Ball is appended as the last
+    element for digit games and must not be compared. Each row's
+    RelatedEveningDrawing is included as the previous evening's draw."""
+    try:
+        time.sleep(XC_PACE_SECONDS)
+        feed = _http_get(XC_PA_URL).json()
+    except Exception:
+        return None
+    if not isinstance(feed, list):
+        return None
+    out = {}
+
+    def _add(name, date_s, is_midday, nums_list, n):
+        date = _pa_date(date_s)
+        if not name or not date or not n:
+            return
+        try:
+            nums = [int(x) for x in list(nums_list or [])[:n]]
+        except (TypeError, ValueError):
+            return
+        if len(nums) == n:
+            out[(name, date, bool(is_midday))] = nums
+
+    for row in feed:
+        if not isinstance(row, dict):
+            continue
+        name = row.get('GameName')
+        n = row.get('GameBallCount')
+        _add(name, row.get('DrawingDateAsString'),
+             row.get('IsMidDayDrawing'), row.get('DrawingNumbersAsList'), n)
+        rel = row.get('RelatedEveningDrawing') or {}
+        if isinstance(rel, dict):
+            _add(name, rel.get('DrawingDateAsString'), False,
+                 rel.get('DrawingNumbersAsList'), n)
+    return out or None
+
+
+def fetch_xcheck_oh():
+    """OH winning-numbers page -> {DrawGameId: [(date, [numbers])]}
+    newest-first, or None on failure. Parses the #cmsNumbers hidden
+    input's JSON blob. Draws carry no slot label: Pick 3/4/5 hold the
+    ~2 latest draws, so the slot is resolved positionally at compare
+    time (same date: first row = evening, last row = midday). A stale
+    Feb 21 Lucky for Life row is in the blob — it is ignored because
+    Lucky for Life is not in OH_GAME_IDS."""
+    try:
+        time.sleep(XC_PACE_SECONDS)
+        html_text = _http_get(XC_OH_URL).text
+    except Exception:
+        return None
+    m = re.search(r'id="cmsNumbers" value=\'([^\']+)\'', html_text)
+    if not m:
+        return None
+    try:
+        blob = json.loads(html.unescape(m.group(1)))
+    except Exception:
+        return None
+    if not isinstance(blob, list):
+        return None
+    out = {}
+    for g in blob:
+        if not isinstance(g, dict):
+            continue
+        gid = g.get('DrawGameId')
+        draws = []
+        for dr in g.get('Draws') or []:
+            if not isinstance(dr, dict):
+                continue
+            nums = dr.get('Numbers') or []
+            vals = [n.get('Value') for n in nums
+                    if isinstance(n, dict) and n.get('Value') is not None]
+            d = (dr.get('DrawDate') or '')[:10]
+            if d and vals:
+                draws.append((d, vals))
+        if gid is not None and draws:
+            out[gid] = draws
+    return out or None
+
+
+def fetch_xcheck_bo(game):
+    """One bitsandodds archive page -> {(date, slot): [numbers]} or None.
+    Only the table headed Date|Draw|Numbers is parsed; a missing table,
+    a 404, or any fetch failure is None (no verdict, never an error).
+    Numbers are space-separated ints in draw order."""
+    slug = BO_SLUGS.get(game)
+    if not slug:
+        return None
+    state = BO_STATE_OVERRIDES.get(game)
+    if state is None:
+        urls = LUSA.get(game) or []
+        if not urls:
+            return None
+        state = urls[0][1].split('/')[3]
+    url = f'{XC_BO_BASE}/{state}/lottery/{slug}/numbers/'
+    try:
+        time.sleep(XC_PACE_SECONDS)
+        html_text = _http_get(url).text
+    except Exception:
+        return None
+    for table in re.findall(r'<table.*?</table>', html_text, re.S):
+        if '<th>Date</th>' not in table or '<th>Numbers</th>' not in table:
+            continue
+        out = {}
+        for date_s, draw_s, nums_s in re.findall(
+                r'<td[^>]*>\s*([^<]+?)\s*</td>\s*<td[^>]*>\s*([^<]+?)\s*</td>'
+                r'\s*<td[^>]*>\s*([0-9 ]+?)\s*</td>', table):
+            try:
+                d = datetime.strptime(date_s.strip(), '%B %d, %Y').strftime('%Y-%m-%d')
+                nums = [int(x) for x in nums_s.split()]
+            except (TypeError, ValueError):
+                continue
+            slot = BO_SLOT_LABELS.get(draw_s.strip().lower())
+            if slot is None or not nums:
+                continue
+            out[(d, slot)] = nums
+        if out:
+            return out
+    return None
+
+
+def _oh_numbers_for(game, rows, date, slot, now_et):
+    """Resolve one OH draw from the blob's rows for a game. Returns
+    (numbers, bonus) or None when the blob can't pin the draw down.
+    Single-draw games match by date alone. For Pick 3/4/5 the blob
+    holds the ~2 latest draws newest-first: with two rows on the date,
+    the first is the evening draw and the last is the midday draw;
+    with one row, it is the latest draw of that date, so the slot is
+    the one implied by the fetch time (before 19:30 -> midday)."""
+    count, _, has_bonus, _, _ = RULES[game]
+    same = [nums for (d, nums) in rows if d == date]
+    if not same:
+        return None
+    if slot is None:
+        nums = same[0]
+    elif len(same) >= 2:
+        nums = same[0] if slot == 'evening' else same[-1]
+    else:
+        evening_yet = (now_et.hour, now_et.minute) >= (OH_EVENING_HOUR, OH_EVENING_MINUTE)
+        if slot == 'evening' and not evening_yet:
+            return None
+        if slot == 'midday' and evening_yet:
+            return None
+        nums = same[0]
+    mains = list(nums[:count])
+    bonus = None
+    if has_bonus and len(nums) > count and nums[count] is not None and nums[count] > 0:
+        bonus = nums[count]
+    return mains, bonus
+
+
+def crosscheck_new_draws(new_draws, data, added, now_et):
+    """Verify newly added draws against second views; quarantine on
+    disagreement. new_draws: [{'game','date','slot','numbers','bonus'}]
+    as stored (already merged into data). Quarantined draws are removed
+    from data and from added (a game whose count hits 0 drops out of
+    added). Returns {'confirmed', 'no_verdict', 'contested',
+    'quarantined': [{game, date, slot, numbers, bonus, second, source}]}
+    where 'second' is the disagreeing second-source numbers. Never
+    raises for a source failure — a missing source is no verdict. The
+    caller wraps this in try/except as well, so a bug here can never
+    block a run."""
+    summary = {'confirmed': 0, 'no_verdict': 0, 'contested': 0,
+               'quarantined': []}
+    if not new_draws:
+        return summary
+    agg = fetch_xcheck_aggregator()
+    pa = fetch_xcheck_pa()
+    oh = fetch_xcheck_oh()
+    bo_cache = {}
+    bo_fetches = [0]
+    for draw in list(new_draws):
+        game, date = draw['game'], draw['date']
+        slot, nums, bonus = draw['slot'], draw['numbers'], draw['bonus']
+        confirms, mismatches = [], []
+
+        def _check(ref_nums, ref_bonus, source):
+            if ref_nums is None:
+                return
+            rb = _ref_bonus(game, ref_nums, ref_bonus)
+            if _draws_match(game, nums, bonus, ref_nums, rb):
+                confirms.append(source)
+            else:
+                mismatches.append((source, list(ref_nums), rb))
+
+        # Aggregator lane (per-row date gate: stale row = no verdict).
+        gid = XCHECK_GAMEIDS.get(game, {}).get(slot)
+        if agg is not None and gid:
+            row = agg.get(gid)
+            if row is not None and row.get('drawDate') == date:
+                _check(row.get('numbers'), row.get('bonus'), 'usalotteryresults')
+        # PA official lane.
+        if pa is not None and game in PA_GAME_NAMES:
+            ref = pa.get((PA_GAME_NAMES[game], date, slot == 'midday'))
+            if ref is not None:
+                _check(ref, None, 'palottery')
+        # OH official lane.
+        if oh is not None and game in OH_GAME_IDS:
+            got = _oh_numbers_for(game, oh.get(OH_GAME_IDS[game], []),
+                                  date, slot, now_et)
+            if got is not None:
+                _check(got[0], got[1], 'ohiolottery')
+        # bitsandodds fallback, only when nothing confirmed or
+        # mismatched yet (a confirm or a mismatch already decides it,
+        # and the fallback is capped per run).
+        if not confirms and not mismatches and bo_fetches[0] < XC_BO_MAX_FETCHES:
+            if game not in bo_cache:
+                bo_cache[game] = fetch_xcheck_bo(game)
+                bo_fetches[0] += 1
+            table = bo_cache.get(game)
+            if table is not None:
+                ref = table.get((date, slot)) if slot is not None else None
+                if ref is None and slot is None:
+                    # Single-draw games: the table's rows for the date.
+                    dated = [v for (d, _s), v in table.items() if d == date]
+                    ref = dated[0] if len(dated) == 1 else None
+                if ref is not None:
+                    _check(ref, None, 'bitsandodds')
+        if confirms:
+            summary['confirmed'] += 1
+            if mismatches:
+                summary['contested'] += 1
+            continue
+        if mismatches:
+            source, ref_nums, ref_bonus = mismatches[0]
+            summary['quarantined'].append({
+                'game': game, 'date': date, 'slot': slot,
+                'numbers': list(nums), 'bonus': bonus,
+                'second': ref_nums, 'second_bonus': ref_bonus,
+                'source': source})
+            # Remove the draw from the in-memory data (it is never
+            # written). Note: for slot games the stored order within a
+            # date is positional, so removing a midday draw while the
+            # evening stays can mislabel the evening row on the next
+            # run — that degrades to a CONFLICT (safe: human review),
+            # never to a wrong publish.
+            stored = data.get(game, [])
+            for i, e in enumerate(stored):
+                if e['date'] == date and list(e['numbers']) == list(nums) \
+                        and e.get('bonus') == bonus:
+                    del stored[i]
+                    break
+            if game in added:
+                added[game] -= 1
+                if added[game] <= 0:
+                    del added[game]
+            continue
+        summary['no_verdict'] += 1
+    return summary
 
 
 def main():
@@ -1229,9 +2010,10 @@ def _run():
     conflicts = []
     errors = []
     now_et = datetime.now(ET)
+    new_draws = []
 
     for game in RULES:
-        n, err = fetch_game_with_retry(game, data, warnings, now_et)
+        n, err = fetch_game_with_retry(game, data, warnings, now_et, new_draws)
         if err:
             (conflicts if 'CONFLICT' in err else errors).append(err)
         elif n:
@@ -1240,12 +2022,12 @@ def _run():
     # Mega Millions fast lane (official site, minutes after the draw).
     # Only a genuine conflict with stored data is reported; every other
     # fast-lane failure is swallowed inside apply_mm_fastlane.
-    jackpot_changed, mm_err = apply_mm_fastlane(data, added)
+    jackpot_changed, mm_err = apply_mm_fastlane(data, added, new_draws)
     if mm_err:
         (conflicts if 'CONFLICT' in mm_err else errors).append(mm_err)
 
     # Powerball fast lane (MUSL API, key-gated; silent no-op with no key).
-    pb_err = apply_powerball_fastlane(data, added)
+    pb_err = apply_powerball_fastlane(data, added, new_draws)
     if pb_err:
         (conflicts if 'CONFLICT' in pb_err else errors).append(pb_err)
 
@@ -1260,6 +2042,18 @@ def _run():
     # succeeds), so partial publishing can't write a half-merged game.
     warnings.extend(errors)
 
+    # Cross-check (item 5): verify the new draws against second views
+    # before writing. A mismatch quarantines the draw (removed from
+    # data/added, listed in 'crosscheck'), never silently overwrites.
+    # The check itself can never block the run: on any exception it
+    # warns and publishes as today.
+    xc = None
+    if new_draws:
+        try:
+            xc = crosscheck_new_draws(new_draws, data, added, now_et)
+        except Exception as e:
+            warnings.append(f'cross-check skipped: {e}')
+
     if added or jackpot_changed:
         tmp = DATA_PATH.with_suffix('.json.tmp')
         tmp.write_text(json.dumps(data, separators=(',', ':')))
@@ -1272,6 +2066,8 @@ def _run():
         out['warnings'] = warnings
     if conflicts:
         out['conflicts'] = conflicts
+    if xc is not None:
+        out['crosscheck'] = xc
     print(json.dumps(out))
 
 
