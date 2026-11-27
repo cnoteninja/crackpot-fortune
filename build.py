@@ -15,14 +15,51 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent
 
+# Base64 cache for the embedded images (Nov 2026): art.jpg and the
+# cookie PNG never change between builds, so re-encoding them on every
+# build is wasted work. The cache is keyed by source path + mtime +
+# size and recomputes only when the source changes. Best-effort: a
+# missing or corrupt cache just re-encodes.
+_CACHE_PATH = ROOT / '.asset_b64_cache.json'
+
+
+def _load_b64_cache():
+    try:
+        cache = json.loads(_CACHE_PATH.read_text())
+        return cache if isinstance(cache, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_b64_cache(cache):
+    try:
+        _CACHE_PATH.write_text(json.dumps(cache))
+    except OSError:
+        pass
+
+
 def _asset_b64(bin_name, b64_name):
     """Base64 for an embedded image. Prefers the binary file; falls back
     to the committed base64 text twin (*.b64) on runners, where the
     snapshot-push route carries text only."""
     p = ROOT / bin_name
+    src = p if p.exists() else ROOT / b64_name
+    try:
+        st = src.stat()
+        key = f'{src}|{st.st_mtime_ns}|{st.st_size}'
+    except OSError:
+        key = None
+    cache = _load_b64_cache()
+    if key is not None and key in cache:
+        return cache[key]
     if p.exists():
-        return base64.b64encode(p.read_bytes()).decode()
-    return ''.join((ROOT / b64_name).read_text().split())
+        encoded = base64.b64encode(p.read_bytes()).decode()
+    else:
+        encoded = ''.join((ROOT / b64_name).read_text().split())
+    if key is not None:
+        cache[key] = encoded
+        _save_b64_cache(cache)
+    return encoded
 
 
 def newest_draw_date(data):

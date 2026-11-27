@@ -29,17 +29,40 @@ Sources:
 Data path override: CF_DATA=/path/to/draws.json (used for testing).
 
 Output: one JSON summary line on stdout.
-Exit code: 0 = updated or nochange, 1 = hard error (draws.json untouched).
+Exit code: 0 = updated, nochange, or locked; 1 = hard error
+(draws.json unreadable or unwritable — the file is untouched).
 A run may carry a 'warnings' list: per-game failures that are NOT data
 conflicts (request errors, unparseable pages, empty results, bad
 responses) no longer abort the run — that game simply doesn't update
-while every game that fetched cleanly still publishes. Only a genuine
-CONFLICT between stored and fetched draws for the same date is a hard
-error, because publishing either side blindly would be wrong.
+while every game that fetched cleanly still publishes. A genuine
+CONFLICT between stored and fetched draws for the same date is
+quarantined the same way: that game is skipped (neither side is
+published for it) and the conflict is listed in a 'conflicts' list in
+the output, so the cron worker can flag it for a human decision — but
+it no longer blocks the other 164 games. A run that finds another run
+already holding the lock prints {"status": "locked"} and exits 0.
+
+  - Powerball fast lane (Nov 2026): MUSL's official Winning Numbers
+    API, GET api.musl.com/v3/numbers (JSON, latest draw). Key-gated:
+    needs an x-api-key (MUSL_API_KEY env var); with no key configured
+    the lane is a silent no-op and Socrata remains the source of
+    record. Mirrors the Mega Millions fast lane (same validation,
+    same conflict rules, latest draw only).
+
+Efficiency (Nov 2026): one shared requests.Session for connection
+reuse; the LotteryUSA year-page parser stops once it reaches draws
+already stored (newest-first cards + a 14-day lookback, so a draw
+missed by a transient failure is still picked up later); and slot
+pages (midday/evening/night) are skipped when the stored record for
+the latest expected draw is already complete — a skipped fetch can
+never lose a draw, because a missing slot always forces a fetch.
+LotteryUSA sends no ETag/Last-Modified, so conditional requests are
+not applicable there (checked Nov 27, 2026).
 """
-import json, os, re, sys, time
-from datetime import datetime
+import fcntl, json, os, re, sys, time
+from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import requests
 
@@ -54,8 +77,38 @@ TIMEOUT = 30
 # from a datacenter IP — the Actions runner's refresh died in ~35s on
 # fast 403s. Pace every LotteryUSA page fetch and retry each game once.
 # Both are module-level constants so tests can stub them to 0.
-PACE_SECONDS = 0.25
+# Nov 27: the shared requests.Session removed the per-request TLS
+# handshake, so at PACE_SECONDS = 0.25 the effective rate rose to
+# ~0.5 s/page and LotteryUSA started serving empty 200 pages (no draw
+# cards) after ~14 rapid requests — ~90 games failed one smoke run with
+# 'no draw cards parsed'. 1.0 s restores the old ~1 s+/page effective
+# rate (20/20 pages clean in probe); the block clears within ~60 s.
+PACE_SECONDS = 1.0
 RETRY_SECONDS = 5
+
+# Efficiency (Nov 2026): one shared session for connection reuse across
+# the ~250 requests per run (a fresh TLS handshake per request was the
+# old behavior). _http_get is the single choke point for all HTTP.
+SESSION = requests.Session()
+ET = ZoneInfo('America/New_York')
+# Year-page parse cutoff: newest stored draw for the page, minus this
+# many days of overlap, so a draw missed by a transient failure while
+# newer draws landed is still picked up on a later run.
+LOOKBACK_DAYS = 14
+# Slot draw times (ET) — after this time the slot's draw for today is
+# expected to exist. Only used to decide whether a slot page can
+# already be current; getting a time slightly wrong costs at most one
+# wasted fetch, never a lost draw (see slot_page_current).
+SLOT_DRAW_TIMES = {'midday': (12, 30), 'evening': (19, 30), 'night': (23, 0)}
+# Run lock (see main()). Overridable for tests via CF_LOCK.
+LOCK_PATH = Path(os.environ.get('CF_LOCK', ROOT / '.fetch.lock'))
+
+
+def _http_get(url, headers=None, **kwargs):
+    """Single choke point for all HTTP in this module: shared session
+    (connection reuse) + the fuller browser headers + timeout."""
+    return SESSION.get(url, headers=headers if headers is not None else UA,
+                       timeout=TIMEOUT, **kwargs)
 
 # game -> (count, max, has_bonus, bonus_max, distinct)
 # count = numbers in one draw. For Pick 10 the draw has 20 numbers even
@@ -585,11 +638,15 @@ def validate(game, numbers, bonus):
 
 
 def fetch_socrata(game, last_date):
+    """Returns (entries, row_warnings). A malformed row is skipped with
+    a warning instead of aborting the whole game — one bad upstream row
+    (e.g. a garbled draw in the Socrata dataset) must not stall the
+    game for weeks while newer draws pile up behind it."""
     ds, bonus_field = SOCRATA[game]
     url = (f'https://data.ny.gov/resource/{ds}.json'
            f"?$where=draw_date>'{last_date}T00:00:00'&$order=draw_date ASC&$limit=500")
     try:
-        rows = requests.get(url, headers=UA, timeout=TIMEOUT).json()
+        rows = _http_get(url).json()
         if not isinstance(rows, list):
             raise ValueError(f'{game}: Socrata returned non-list: {str(rows)[:120]}')
     except (ValueError, requests.RequestException):
@@ -598,29 +655,34 @@ def fetch_socrata(game, last_date):
         # filter in Python instead of failing the whole run.
         fb = (f'https://data.ny.gov/resource/{ds}.json'
               f'?$order=draw_date DESC&$limit=500')
-        rows = requests.get(fb, headers=UA, timeout=TIMEOUT).json()
+        rows = _http_get(fb).json()
         if not isinstance(rows, list):
             raise ValueError(f'{game}: Socrata fallback returned non-list')
         rows = [r for r in rows if r['draw_date'][:10] > last_date]
         rows.sort(key=lambda r: r['draw_date'])
     out = []
+    warnings = []
     for r in rows:
-        date = r['draw_date'][:10]
-        nums = [int(x) for x in r['winning_numbers'].split()]
-        if bonus_field:
-            bonus = int(r[bonus_field])
-        elif game == 'powerball':
-            bonus = nums.pop()  # last number is the Powerball
-        else:
-            bonus = None
-        err = validate(game, nums, bonus)
-        if err:
-            raise ValueError(err + f' (date {date})')
+        date = (r.get('draw_date') or '')[:10] or 'unknown'
+        try:
+            nums = [int(x) for x in r['winning_numbers'].split()]
+            if bonus_field:
+                bonus = int(r[bonus_field])
+            elif game == 'powerball':
+                bonus = nums.pop()  # last number is the Powerball
+            else:
+                bonus = None
+            err = validate(game, nums, bonus)
+            if err:
+                raise ValueError(err)
+        except Exception as e:
+            warnings.append(f'{game}: skipping malformed row {date}: {e}')
+            continue
         entry = {'date': date, 'numbers': nums}
         if bonus is not None:
             entry['bonus'] = bonus
         out.append(entry)
-    return out
+    return out, warnings
 
 
 # Mega Millions fast lane (Nov 2026): the official site's own results
@@ -645,7 +707,7 @@ def fetch_mm_fastlane():
     future-dated jackpot entry would misreport the data as current
     through a draw that hasn't happened yet."""
     try:
-        resp = requests.get(MM_FASTLANE_URL, headers=UA, timeout=TIMEOUT)
+        resp = _http_get(MM_FASTLANE_URL)
         resp.raise_for_status()
         m = re.search(r'<string[^>]*>(.*?)</string>', resp.text, re.S)
         if not m:
@@ -660,7 +722,7 @@ def fetch_mm_fastlane():
             return None, None
         date = play_date[:10]
         # Guard against a garbled or future-dated feed response.
-        if date > datetime.now().strftime('%Y-%m-%d'):
+        if date > datetime.now(ET).strftime('%Y-%m-%d'):
             return None, None
         nums = [drawing.get(f'N{i}') for i in range(1, 6)]
         bonus = drawing.get('MBall')
@@ -717,34 +779,127 @@ def apply_mm_fastlane(data, added):
     return jackpot_changed, None
 
 
+# Powerball fast lane (Nov 2026): MUSL's official Winning Numbers API.
+# Key-gated: needs an x-api-key (MUSL_API_KEY env var). As of Nov 2026
+# there is no self-serve key portal — a key must be requested from MUSL
+# directly, so until one exists this lane is a silent no-op and the NY
+# Socrata feed remains the source of record. Docs:
+# https://api.musl.com/numbers-api
+PB_FASTLANE_URL = 'https://api.musl.com/v3/numbers'
+
+def fetch_powerball_fastlane():
+    """Latest Powerball draw from api.musl.com. Returns (draw|None, None)
+    — no jackpot (the nextDrawing jackpot field is unverified). Any
+    failure — no key, HTTP error, malformed JSON, invalid numbers —
+    returns (None, None); the Socrata path remains the source of record.
+    The draw is validated with the same validate() as every other source.
+    Response shape (per MUSL docs): {"drawDate": "2026-02-16",
+    "numbers": [{"ruleCode": "white-balls", "value": "16", ...} x5,
+    {"ruleCode": "powerball", "value": "06", ...}, ...]}."""
+    key = os.environ.get('MUSL_API_KEY')
+    if not key:
+        return None, None
+    try:
+        resp = _http_get(PB_FASTLANE_URL,
+                         headers={**UA, 'Accept': 'application/json',
+                                  'x-api-key': key})
+        resp.raise_for_status()
+        payload = resp.json()
+        if not isinstance(payload, dict):
+            return None, None
+        date = payload.get('drawDate')
+        if not isinstance(date, str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}', date):
+            return None, None
+        # Guard against a garbled or future-dated feed response.
+        if date > datetime.now(ET).strftime('%Y-%m-%d'):
+            return None, None
+        numbers = payload.get('numbers')
+        if not isinstance(numbers, list):
+            return None, None
+        nums = []
+        bonus = None
+        for entry in numbers:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                v = int(entry.get('value'))
+            except (TypeError, ValueError):
+                return None, None
+            if entry.get('ruleCode') == 'white-balls':
+                nums.append(v)
+            elif entry.get('ruleCode') == 'powerball':
+                bonus = v
+        if len(nums) != 5 or bonus is None:
+            return None, None
+        err = validate('powerball', sorted(nums), bonus)
+        if err:
+            return None, None
+        return {'date': date, 'numbers': sorted(nums), 'bonus': bonus}, None
+    except Exception:
+        return None, None
+
+
+def apply_powerball_fastlane(data, added):
+    """Merge the Powerball fast lane into data (in place). Returns an
+    error string or None; only a genuine draw conflict is an error,
+    every other fast-lane failure is swallowed here. Mirrors
+    apply_mm_fastlane without the jackpot."""
+    try:
+        pb_draw, _ = fetch_powerball_fastlane()
+    except Exception:
+        return None
+    if pb_draw is None:
+        return None
+    stored_pb = data.get('powerball', [])
+    try:
+        merged, n = merge_simple('powerball', stored_pb,
+                                 {pb_draw['date']: {'numbers': pb_draw['numbers'],
+                                                    'bonus': pb_draw.get('bonus')}})
+    except ValueError as e:
+        return str(e)
+    if n:
+        data['powerball'] = merged
+        added['powerball'] = added.get('powerball', 0) + n
+    return None
+
+
 def fetch_socrata_slots(game, since):
     """Socrata datasets with one row per date and separate midday/evening
-    columns (NY Numbers / Win 4 / Take 5). Returns slot maps like the
-    LotteryUSA pick games: {'midday': {date: nums}, 'evening': {date: nums}}."""
+    columns (NY Numbers / Win 4 / Take 5). Returns (slot_maps, warnings)
+    like the LotteryUSA pick games: {'midday': {date: nums}, 'evening':
+    {date: nums}}. A malformed row is skipped with a warning instead of
+    aborting the whole game — one bad upstream row must not stall the
+    game for weeks while newer draws pile up behind it."""
     dataset, columns, kind = SOCRATA_SLOTS[game]
     url = (f'https://data.ny.gov/resource/{dataset}.json'
            f"?$where=draw_date>'{since}T00:00:00'&$order=draw_date ASC&$limit=500")
-    rows = requests.get(url, headers=UA, timeout=TIMEOUT).json()
+    rows = _http_get(url).json()
     if not isinstance(rows, list):
         raise ValueError(f'{game}: Socrata returned non-list: {str(rows)[:120]}')
     maps = {'midday': {}, 'evening': {}}
+    warnings = []
     for r in rows:
+        date = (r.get('draw_date') or '')[:10] or 'unknown'
         for slot, col in columns.items():
             raw = (r.get(col) or '').strip()
             if not raw:
                 continue
-            if kind == 'digits':
-                nums = [int(c) for c in raw if c.isdigit()]
-            else:
-                nums = [int(x) for x in raw.split()]
-            err = validate(game, nums, None)
-            if err:
-                raise ValueError(err + f' (date {r["draw_date"][:10]} {slot})')
-            maps[slot][r['draw_date'][:10]] = nums
-    return maps
+            try:
+                if kind == 'digits':
+                    nums = [int(c) for c in raw if c.isdigit()]
+                else:
+                    nums = [int(x) for x in raw.split()]
+                err = validate(game, nums, None)
+                if err:
+                    raise ValueError(err)
+            except Exception as e:
+                warnings.append(f'{game}: skipping malformed row {date} {slot}: {e}')
+                continue
+            maps[slot][date] = nums
+    return maps, warnings
 
 
-def fetch_lusa_page(url, only_box=None):
+def fetch_lusa_page(url, only_box=None, cutoff=None):
     """Parse one LotteryUSA year page ->
     {date: {'numbers': [...], 'bonus': n|None}} (newest first in page).
     A bonus ball (e.g. Texas Two Step's Bonus Ball, WA Lotto's bonus) renders
@@ -757,19 +912,29 @@ def fetch_lusa_page(url, only_box=None):
     Cards that carry no box with that title fall back to all balls in the
     card — LotteryUSA only renders titled ball boxes on cards that have a
     second box, so a plain card has no box to match (NJ Pick 3, Nov 2026:
-    only Green Ball Double Draw evenings carry a 'Main' + 'Double' pair)."""
+    only Green Ball Double Draw evenings carry a 'Main' + 'Double' pair).
+    cutoff: a 'YYYY-MM-DD' date; cards are newest-first, so parsing stops
+    at the first card on or before the cutoff — everything below it is
+    already stored (or older than the lookback window). Stopping early
+    returns whatever newer cards were parsed, possibly {} (nothing new);
+    the 'no draw cards parsed' error is raised only when the page yields
+    no usable cards at all and parsing never stopped early."""
     # Pace the burst: this is the single choke point for all ~241
     # LotteryUSA page fetches per run. Hitting them in rapid succession
     # from one IP trips the source's bot protection (fast 403s).
     time.sleep(PACE_SECONDS)
-    html = requests.get(url, headers=UA, timeout=TIMEOUT).text
+    html = _http_get(url).text
     cards = re.split(r'c-results-table__item', html)[1:]
     found = {}
+    stopped_early = False
     for card in cards:
         dm = re.search(r'c-draw-card__draw-date-sub">\s*([A-Z][a-z]{2} \d{1,2}, \d{4})', card)
         if not dm:
             continue
         date = datetime.strptime(dm.group(1), '%b %d, %Y').strftime('%Y-%m-%d')
+        if cutoff is not None and date <= cutoff:
+            stopped_early = True
+            break
         scope = card
         if only_box:
             balls = []
@@ -791,7 +956,7 @@ def fetch_lusa_page(url, only_box=None):
             bonus = int(bm.group(1))
         if balls:
             found[date] = {'numbers': balls, 'bonus': bonus}
-    if not found:
+    if not found and not stopped_early:
         raise ValueError(f'no draw cards parsed from {url}')
     return found
 
@@ -837,6 +1002,61 @@ def merge_simple(game, stored, fetched_by_date):
 # in time order, so the n-th entry of a date is the n-th slot.
 SLOT_ORDER = {'midday': 0, 'evening': 1, 'night': 2}
 _SLOT_BY_INDEX = ('midday', 'evening', 'night')
+
+
+def _counts_by_date(stored):
+    from collections import Counter
+    return Counter(e['date'] for e in stored)
+
+
+def slot_page_current(game, slot, stored, now_et):
+    """True when the latest expected draw for this slot is already stored,
+    so fetching the page cannot add anything. Conservative by design:
+    stored entries are positional within a date (see merge_picks), so one
+    entry alone can't be trusted to be a particular slot — the page is
+    skipped only when the stored record for the latest expected date is
+    COMPLETE (as many entries as slots that have happened by now). A
+    missing slot therefore always forces a fetch, and a skipped fetch can
+    never lose a draw."""
+    n_slots = len(LUSA[game])
+    today = now_et.date()
+    h, m = SLOT_DRAW_TIMES[slot]
+    if (now_et.hour, now_et.minute) >= (h, m):
+        latest = today
+        passed = sum(1 for s, _ in LUSA[game]
+                     if SLOT_DRAW_TIMES[s] <= (now_et.hour, now_et.minute))
+    else:
+        latest = today - timedelta(days=1)
+        passed = n_slots
+    counts = _counts_by_date(stored)
+    return counts.get(latest.isoformat(), 0) >= passed
+
+
+def _slot_newest(stored):
+    """Newest stored date per slot (positional mapping, same as
+    merge_picks). Used only to place the parse cutoff; the lookback
+    window absorbs any one-slot mislabeling."""
+    from collections import Counter
+    seen = Counter()
+    newest = {}
+    for entry in stored:
+        idx = seen[entry['date']]
+        slot = _SLOT_BY_INDEX[idx] if idx < len(_SLOT_BY_INDEX) else 'evening'
+        seen[entry['date']] += 1
+        if slot not in newest or entry['date'] > newest[slot]:
+            newest[slot] = entry['date']
+    return newest
+
+
+def _cutoff_for(newest_date):
+    """Parse cutoff for a page: newest stored draw for it, minus the
+    lookback window (covers a draw missed by a transient failure while
+    newer draws landed). None when nothing is stored yet (seed: parse
+    the whole page)."""
+    if not newest_date:
+        return None
+    d = datetime.strptime(newest_date, '%Y-%m-%d').date() - timedelta(days=LOOKBACK_DAYS)
+    return d.isoformat()
 
 
 def merge_picks(game, stored, slot_maps):
@@ -887,14 +1107,22 @@ def _is_retryable(err):
     return isinstance(err, ValueError) and 'CONFLICT' not in str(err)
 
 
-def fetch_game(game, data):
+def fetch_game(game, data, warnings=None, now_et=None):
     """Fetch and merge one game in place; returns the number of draws
     added. Raises on any failure. Safe to retry: a failed attempt never
-    mutates data (merges only assign after they succeed)."""
+    mutates data (merges only assign after they succeed). warnings: a
+    list the caller supplies; per-row non-fatal notes are appended to
+    it. now_et: injectable clock (America/New_York) for the
+    schedule-aware slot skip; defaults to now."""
+    if warnings is None:
+        warnings = []
+    if now_et is None:
+        now_et = datetime.now(ET)
     stored = data.get(game, [])
     if game in SOCRATA:
         since = stored[-1]['date'] if stored else SEED_SINCE.get(game, '2020-01-01')
-        new = fetch_socrata(game, since)
+        new, row_warnings = fetch_socrata(game, since)
+        warnings.extend(row_warnings)
         if new:
             if stored:
                 for e in new:
@@ -904,21 +1132,40 @@ def fetch_game(game, data):
             data[game] = stored
             return len(new)
     elif game in SOCRATA_SLOTS:
-        since = stored[0]['date'] if stored else SEED_SINCE.get(game, '2020-01-01')
-        slot_maps = fetch_socrata_slots(game, since)
+        # Fetch since the newest stored date (minus one day of overlap,
+        # so a missing slot on the newest date is not skipped over).
+        # Previously this re-fetched from the FIRST stored date, which
+        # re-validated months of history on every run — and re-hit the
+        # same bad upstream row, stalling the game (NY Numbers / Win 4,
+        # Nov 2026).
+        if stored:
+            newest = datetime.strptime(stored[-1]['date'], '%Y-%m-%d').date()
+            since = (newest - timedelta(days=1)).isoformat()
+        else:
+            since = SEED_SINCE.get(game, '2020-01-01')
+        slot_maps, row_warnings = fetch_socrata_slots(game, since)
+        warnings.extend(row_warnings)
         merged, n = merge_picks(game, stored, slot_maps)
         if n:
             data[game] = merged
         return n
     elif game in SLOT_GAMES:
-        slot_maps = {slot: fetch_lusa_page(url, LUSA_ONLY_BOX.get(game))
-                     for slot, url in LUSA[game]}
+        slot_maps = {}
+        newest_by_slot = _slot_newest(stored)
+        for slot, url in LUSA[game]:
+            if slot_page_current(game, slot, stored, now_et):
+                continue
+            slot_maps[slot] = fetch_lusa_page(
+                url, LUSA_ONLY_BOX.get(game),
+                cutoff=_cutoff_for(newest_by_slot.get(slot)))
         merged, n = merge_picks(game, stored, slot_maps)
         if n:
             data[game] = merged
         return n
     else:
-        fmap = fetch_lusa_page(LUSA[game][0][1], LUSA_ONLY_BOX.get(game))
+        cutoff = _cutoff_for(stored[-1]['date'] if stored else None)
+        fmap = fetch_lusa_page(LUSA[game][0][1], LUSA_ONLY_BOX.get(game),
+                               cutoff=cutoff)
         merged, n = merge_simple(game, stored, fmap)
         if n:
             data[game] = merged
@@ -926,52 +1173,92 @@ def fetch_game(game, data):
     return 0
 
 
-def fetch_game_with_retry(game, data):
+def fetch_game_with_retry(game, data, warnings=None, now_et=None):
     """One attempt, then one retry after RETRY_SECONDS for transient
-    failures. Returns (added_count, error_str_or_None)."""
+    failures. Returns (added_count, error_str_or_None). Warnings
+    collected by the first attempt are rolled back before the retry so
+    they are not reported twice."""
+    if warnings is None:
+        warnings = []
+    mark = len(warnings)
     try:
-        return fetch_game(game, data), None
+        return fetch_game(game, data, warnings, now_et), None
     except Exception as e:
         if not _is_retryable(e):
             return 0, str(e)
+        del warnings[mark:]
         time.sleep(RETRY_SECONDS)
         try:
-            return fetch_game(game, data), None
+            return fetch_game(game, data, warnings, now_et), None
         except Exception as e2:
             return 0, str(e2)
 
 
 def main():
-    data = json.loads(DATA_PATH.read_text())
+    # Serialize runs: a second concurrent run prints {"status": "locked"}
+    # and exits 0 instead of racing the first run's data write. flock is
+    # released automatically if this process dies, so locks can't go
+    # stale. If the lockfile itself can't be created, proceed without
+    # the lock rather than failing the refresh. The lock is closed
+    # explicitly in a finally (not left to frame teardown), so it is
+    # released even if a traceback keeps this frame alive.
+    lock_fp = None
+    try:
+        lock_fp = open(LOCK_PATH, 'w')
+        fcntl.flock(lock_fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        print(json.dumps({'status': 'locked'}))
+        return
+    except OSError:
+        lock_fp = None
+    try:
+        _run()
+    finally:
+        if lock_fp is not None:
+            lock_fp.close()
+
+
+def _run():
+    try:
+        data = json.loads(DATA_PATH.read_text())
+    except (OSError, ValueError) as e:
+        fail(f'cannot load draws.json: {e}')
+
     added = {}
+    warnings = []
+    conflicts = []
     errors = []
+    now_et = datetime.now(ET)
 
     for game in RULES:
-        n, err = fetch_game_with_retry(game, data)
+        n, err = fetch_game_with_retry(game, data, warnings, now_et)
         if err:
-            errors.append(err)
+            (conflicts if 'CONFLICT' in err else errors).append(err)
         elif n:
             added[game] = n
 
     # Mega Millions fast lane (official site, minutes after the draw).
-    # Only a genuine conflict with stored data is a hard error; every
-    # other fast-lane failure is swallowed inside apply_mm_fastlane.
+    # Only a genuine conflict with stored data is reported; every other
+    # fast-lane failure is swallowed inside apply_mm_fastlane.
     jackpot_changed, mm_err = apply_mm_fastlane(data, added)
     if mm_err:
-        errors.append(mm_err)
+        (conflicts if 'CONFLICT' in mm_err else errors).append(mm_err)
 
-    # Partial-failure rule (Nov 2026 — LotteryUSA's Maine pages stopped
-    # parsing): a genuine data CONFLICT is still a hard error (fail,
-    # write nothing), because stored and fetched draws disagree and
-    # publishing either side blindly would be wrong. Every other
+    # Powerball fast lane (MUSL API, key-gated; silent no-op with no key).
+    pb_err = apply_powerball_fastlane(data, added)
+    if pb_err:
+        (conflicts if 'CONFLICT' in pb_err else errors).append(pb_err)
+
+    # Quarantine rule (Nov 2026): a genuine data CONFLICT no longer
+    # aborts the run. The conflicting game is skipped — neither side is
+    # published for it — and the conflict is listed in 'conflicts' so
+    # the cron worker can flag it for a human decision. Every other
     # per-game failure (request error, unparseable page, empty result,
     # bad response) is a warning: that game simply doesn't update this
     # run, while every game that fetched cleanly still publishes. A
     # failed game never mutates data (fetch_game merges only after it
     # succeeds), so partial publishing can't write a half-merged game.
-    hard = [e for e in errors if 'CONFLICT' in e]
-    if hard:
-        fail('; '.join(hard))
+    warnings.extend(errors)
 
     if added or jackpot_changed:
         tmp = DATA_PATH.with_suffix('.json.tmp')
@@ -981,8 +1268,10 @@ def main():
     through = max(d['date'] for draws in data.values() for d in draws)
     out = {'status': 'updated' if (added or jackpot_changed) else 'nochange',
            'added': added, 'through': through}
-    if errors:
-        out['warnings'] = errors
+    if warnings:
+        out['warnings'] = warnings
+    if conflicts:
+        out['conflicts'] = conflicts
     print(json.dumps(out))
 
 
